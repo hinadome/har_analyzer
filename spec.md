@@ -82,8 +82,10 @@ Optional phases report `-1` to indicate "not applicable" (e.g. `dns` and `connec
 
 ### 2.5 Per-file aggregates computed
 - `totalRequests` — total entry count
+- `totalContentSize` — sum of `entry.response.content.size` across all entries (bytes)
 - `statusCodeCounts` — map of `{ statusCode: count }`
 - `contentTypeCounts` — map of `{ normalizedMimeType: count }`
+- `contentSizeBucketCounts` — map of `{ bucketLabel: count }` using five ranges: `0 B – 1 KB`, `1 KB – 10 KB`, `10 KB – 100 KB`, `100 KB – 1 MB`, `1 MB+`
 - `uniqueUrlCount` — count of distinct URL strings
 
 ---
@@ -94,7 +96,7 @@ Displayed after at least one file is loaded.
 
 ### 3.1 Structure
 - One column per loaded HAR file, with the file name as the column header (truncated with a tooltip if long).
-- Rows grouped into three sections: totals, status codes, and content types.
+- Rows grouped into four sections: totals, status codes, content types, and content size.
 
 ### 3.2 Rows
 
@@ -104,9 +106,11 @@ Displayed after at least one file is loaded.
 | Unique URLs | Integer count per file | Yes — links to `/details?type=url` |
 | *[status code]* (one row per unique code across all files) | Count per file, `—` if absent | Yes — links to `/details?type=status&value={code}` |
 | *[content type]* (one row per unique type across all files) | Count per file, `—` if absent | Yes — links to `/details?type=contentType&value={encoded}` |
+| Total Response Size | Human-readable byte total per file | No |
+| *[size bucket]* (`0 B – 1 KB`, `1 KB – 10 KB`, `10 KB – 100 KB`, `100 KB – 1 MB`, `1 MB+`) | Count per file, `—` if absent | Yes — links to `/details?type=contentSizeBucket&value={encoded}` |
 
 ### 3.3 Section headers
-- "Status Codes" and "Content Types" section headers span all columns and visually separate the groups.
+- "Status Codes", "Content Types", and "Content Size" section headers span all columns and visually separate the groups.
 
 ### 3.4 Status code color coding (row labels)
 | Range | Color |
@@ -125,8 +129,8 @@ All detail views live at `/details` and are distinguished by query parameters:
 
 | Parameter | Values |
 |---|---|
-| `type` | `status` \| `url` \| `contentType` |
-| `value` | Status code integer, or URL-encoded string for content type; omitted for `type=url` |
+| `type` | `status` \| `url` \| `contentType` \| `contentSizeBucket` |
+| `value` | Status code integer, URL-encoded content type string, or URL-encoded size bucket label (e.g. `1+KB+%E2%80%93+10+KB`); omitted for `type=url` |
 
 ### 4.1 Common elements
 - Back link returning to `/`
@@ -151,7 +155,20 @@ Columns:
 ### 4.3 Content type detail (`type=contentType`)
 Same table structure as status code detail, filtered to entries whose normalized content type equals `value`.
 
-### 4.4 URL detail (`type=url`)
+### 4.4 Content size bucket detail (`type=contentSizeBucket`)
+Same table structure as status code detail, filtered to entries whose `response.content.size` falls within the selected size range. Page title displays "Content Size: {bucket label}" (e.g. "Content Size: 1 KB – 10 KB").
+
+Size bucket boundaries:
+
+| Bucket label | Range |
+|---|---|
+| `0 B – 1 KB` | 0 – 1,023 bytes |
+| `1 KB – 10 KB` | 1,024 – 10,239 bytes |
+| `10 KB – 100 KB` | 10,240 – 102,399 bytes |
+| `100 KB – 1 MB` | 102,400 – 1,048,575 bytes |
+| `1 MB+` | ≥ 1,048,576 bytes |
+
+### 4.5 URL detail (`type=url`)
 Displays entries grouped by URL rather than a flat list.
 
 **Summary table columns:**
@@ -168,7 +185,7 @@ Displays entries grouped by URL rather than a flat list.
 **Expanded row:**
 Clicking a URL row expands an inline sub-table showing each individual entry with: HAR file, status badge (links to status detail), content type (links to content type detail), size, time.
 
-### 4.5 Per-file performance dashboard (`/file/[index]`)
+### 4.6 Per-file performance dashboard (`/file/[index]`)
 
 Displays a performance summary for a single loaded HAR file.
 
@@ -181,7 +198,7 @@ Displays a performance summary for a single loaded HAR file.
 | Largest Resources | Top 10 entries by `contentSize`, shown with URL, size, and a proportional bar; links to compare page |
 | Avg Timing Breakdown | Stacked bar + legend grid showing average DNS, Connect, SSL, Send, TTFB (wait), and Receive time across all requests; phases < 0.5% share are hidden from the bar. Calculated as `sum(phase_ms across all entries) / n`, with HAR `-1` values treated as 0. `blocked` is excluded from this display. |
 
-### 4.6 Per-URL comparison page (`/compare?url={encoded}`)
+### 4.7 Per-URL comparison page (`/compare?url={encoded}`)
 
 Displays all recorded entries for a specific URL grouped by HAR file, enabling cross-file comparison.
 
@@ -197,12 +214,12 @@ Displays all recorded entries for a specific URL grouped by HAR file, enabling c
 
 **All-entries flat table**: Below the per-file sections, a sortable paginated table lists every entry for the URL across all files with columns for HAR file, status, content type, size, and time.
 
-### 4.7 Sorting
+### 4.8 Sorting
 - Clicking a column header sorts by that field ascending; clicking again toggles descending.
 - Active sort column is highlighted with a directional arrow indicator.
 - Sort state resets to the default when the search query changes.
 
-### 4.8 Pagination
+### 4.9 Pagination
 - Flat entry tables (status and content type views) are paginated at 50 rows per page.
 - Previous / Next controls and a "current / total" indicator are shown when more than one page exists.
 - Page resets to 1 when the search query changes.

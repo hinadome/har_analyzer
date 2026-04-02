@@ -5,8 +5,8 @@ A browser-based tool for uploading, analyzing, and comparing multiple HAR (HTTP 
 ## Features
 
 - Upload multiple `.har` files via drag-and-drop or file browser
-- Comparison table showing request counts, status codes, unique URLs, and content types per file
-- Clickable status codes, URLs, and content types that link to detailed breakdowns
+- Comparison table showing request counts, status codes, unique URLs, content types, content size totals, and content size distribution per file
+- Clickable status codes, URLs, content types, and content size ranges that link to detailed breakdowns
 - Details pages with sortable, filterable, paginated entry tables
 - URL details grouped by endpoint with per-file hit counts and expandable rows
 - Per-file performance dashboard: P50/P95/P99 response times, slowest requests, largest resources, and avg timing breakdown (DNS → Connect → SSL → Send → TTFB → Receive)
@@ -36,8 +36,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## Usage
 
 1. **Upload HAR files** — drag one or more `.har` files onto the upload zone, or click to open the file picker. Files can be added incrementally.
-2. **Review the comparison table** — see total requests, unique URL counts, per-status-code counts, and per-content-type counts for each file in a single table.
-3. **Drill into details** — click any status code, the "Unique URLs" row, or any content type label to open a details page filtered to that dimension.
+2. **Review the comparison table** — see total requests, unique URL counts, per-status-code counts, per-content-type counts, total response size, and content size distribution buckets for each file in a single table.
+3. **Drill into details** — click any status code, the "Unique URLs" row, any content type label, or any content size range to open a details page filtered to that dimension.
 4. **Inspect per-file performance** — click a file name chip or the file detail link to see P50/P95/P99 latency, slowest requests, largest resources, and an average timing breakdown across all requests.
 5. **Compare a URL across files** — from the URL detail view, click any URL to open the compare page. Expand any request row to see its headers, cookies, and a **Timing** tab showing phase-by-phase breakdown (DNS, TCP connect, SSL, send time, TTFB, and receive time).
 6. **Remove or clear files** — click the × on a file chip to remove it, or use "Clear all" in the header to reset.
