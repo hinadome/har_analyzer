@@ -8,7 +8,7 @@
 
 **Tech stack**: TypeScript 5 (strict), Next.js 16.2.2 (App Router), React 19.2.4, Tailwind CSS v4, ESLint 9
 
-**Architecture**: Client-only Next.js SPA — all HAR parsing and state management runs in the browser. No API routes, no server-side data fetching. Two routes: `/` (upload + comparison) and `/details` (drill-down). Data persisted via `localStorage`.
+**Architecture**: Client-only Next.js SPA — all HAR parsing and state management runs in the browser. No API routes, no server-side data fetching. Four routes: `/` (upload + comparison), `/details` (drill-down), `/file/[index]` (per-file performance dashboard), `/compare` (per-URL cross-file comparison with expandable request detail). Data persisted via `localStorage`.
 
 **Structure**:
 ```
@@ -18,11 +18,18 @@ app/
   globals.css         — Minimal global styles; Tailwind v4 @import
   details/
     page.tsx          — Details page; Suspense-wrapped to satisfy useSearchParams requirement
+  file/
+    [index]/
+      page.tsx        — Per-file performance dashboard (P50/P95/P99, slowest, largest, avg timing breakdown)
+  compare/
+    page.tsx          — Per-URL cross-file comparison; EntryDetail component with Request/Response/Timing tabs
 components/
   FileUpload.tsx      — Drag-and-drop + file picker, accepts .har / application/json
   ComparisonTable.tsx — Cross-file summary table with clickable links
+  StatusBadge.tsx     — Reusable status code badge (color-coded); exports statusColorClass helper
 types/
   har.ts              — Full HAR spec types + internal analysis types (EntryRecord, HarAnalysis, HarStore, DetailType)
+                        EntryRecord includes timings: HarTimings (dns, connect, ssl, send, wait, receive, blocked)
 utils/
   harParser.ts        — parseHarFile, analyzeHar, buildHarStore, getAllStatusCodes, getAllContentTypes, formatBytes, formatTime
   storage.ts          — saveHarStore, loadHarStore, clearHarStore (localStorage key: har_analyzer_data)
@@ -53,6 +60,7 @@ HarFile (raw JSON)
 **State management**:
 - `app/page.tsx` owns `analyses: HarAnalysis[]` state; restores from `localStorage` on mount (`useEffect` at line 15-19)
 - `app/details/page.tsx` (`DetailsPageContent`) owns local `analyses`, `allEntries`, sort/filter/page state; loads from `localStorage` on mount
+- `app/compare/page.tsx` (`ComparePageContent`) uses `useSyncExternalStore(subscribeHarStore, getHarStoreSnapshot, () => null)` — the correct SSR-safe pattern for localStorage-backed state; avoids the hydration mismatch that `useState(() => loadHarStore()...)` causes. `getHarStoreSnapshot` caches the last JSON string to return a stable reference (required by `useSyncExternalStore` to prevent infinite re-render loops)
 - No shared context or global store — cross-page communication is entirely through `localStorage`
 
 **Filtering and sorting** (`details/page.tsx:64-98`):
@@ -103,16 +111,15 @@ HarFile (raw JSON)
 
 ## 4. Reusability (What to leverage)
 
-**`statusColor` / `statusBadge` duplication**:
-- `statusColor(code)` at `ComparisonTable.tsx:11-17` returns a Tailwind class string
-- `statusBadge(code)` at `details/page.tsx:16-23` renders a full `<span>` badge
-- These could be extracted to a shared `components/StatusBadge.tsx` if adding more views
+**`StatusBadge` component** (`components/StatusBadge.tsx`): Extracted shared component rendering a color-coded status code badge; exports `statusColorClass(code)` helper. Used by `details/page.tsx`, `compare/page.tsx`, and `file/[index]/page.tsx`.
 
-**`formatBytes` / `formatTime`** (`utils/harParser.ts:88-99`): Pure utility functions, importable anywhere. Already used in both `ComparisonTable` (indirectly) and `details/page.tsx`.
+**`formatBytes` / `formatTime`** (`utils/harParser.ts`): Pure utility functions, importable anywhere. Used across all pages.
 
-**`getAllStatusCodes` / `getAllContentTypes`** (`utils/harParser.ts:68-86`): Aggregate helpers over `HarAnalysis[]`. Used only in `ComparisonTable` currently but reusable for any summary view.
+**`getAllStatusCodes` / `getAllContentTypes`** (`utils/harParser.ts`): Aggregate helpers over `HarAnalysis[]`. Used in `ComparisonTable`.
 
-**`UrlGroupTable`** (`details/page.tsx:306-412`): A self-contained component defined at module level but not exported. Could be extracted if needed elsewhere.
+**`TIMING_PHASES` constant** (`compare/page.tsx`): Module-level array defining the 6 timing phases (dns, connect, ssl, send, wait/TTFB, receive) with display labels and Tailwind color classes. Used by `EntryDetail` to render both the stacked bar and the legend grid. The same color palette is also used in `file/[index]/page.tsx` — extract to a shared location if a third consumer appears.
+
+**`EntryDetail` component** (`compare/page.tsx`): Self-contained expandable request detail panel with Request / Response / Timing tabs. The Timing tab handles HAR `-1` sentinel values (optional phases not applicable for a request) by clamping them to 0.
 
 ---
 
@@ -143,3 +150,4 @@ HarFile (raw JSON)
 - No test runner configured (`npm run test` script missing, no Jest/Vitest setup)
 - No `typecheck` npm script (only raw `npx tsc --noEmit`)
 - `HarStore.analyses[].entries` and `HarStore.allEntries` are redundant (same data stored twice in localStorage) — potential storage efficiency improvement
+- `useSyncExternalStore` pattern in `compare/page.tsx` should be applied to `details/page.tsx` and `file/[index]/page.tsx` as well — those pages still use `useState(() => loadHarStore()...)` which can cause hydration mismatches

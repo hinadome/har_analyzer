@@ -46,6 +46,12 @@ HAR Analyzer is a client-side web application that ingests one or more HAR (HTTP
 | Content size | `entry.response.content.size` |
 | Body size | `entry.response.bodySize` |
 | Response time | `entry.time` (ms) |
+| Request headers | `entry.request.headers` |
+| Response headers | `entry.response.headers` |
+| Request cookies | `entry.request.cookies` (falls back to parsing `Cookie` header) |
+| Response cookies | `entry.response.cookies` (falls back to parsing `Set-Cookie` headers) |
+| Server IP | `entry.serverIPAddress` |
+| Timing phases | `entry.timings`: `dns`, `connect`, `ssl`, `send`, `wait`, `receive`, `blocked` (optional phases use `-1` when not applicable) |
 
 ### 2.2 Content type normalization
 - The `mimeType` value is split on `;` and only the first segment is retained (strips charset and boundary parameters).
@@ -140,12 +146,41 @@ Displays entries grouped by URL rather than a flat list.
 **Expanded row:**
 Clicking a URL row expands an inline sub-table showing each individual entry with: HAR file, status badge (links to status detail), content type (links to content type detail), size, time.
 
-### 4.5 Sorting
+### 4.5 Per-file performance dashboard (`/file/[index]`)
+
+Displays a performance summary for a single loaded HAR file.
+
+**Sections:**
+
+| Section | Content |
+|---|---|
+| Performance Summary | P50, P95, P99 response times; error rate (4xx/5xx %); total transferred bytes |
+| Slowest Requests | Top 10 entries by `time`, shown with URL, duration, and a proportional bar; links to compare page |
+| Largest Resources | Top 10 entries by `contentSize`, shown with URL, size, and a proportional bar; links to compare page |
+| Avg Timing Breakdown | Stacked bar + legend grid showing average DNS, Connect, SSL, Send, TTFB (wait), and Receive time across all requests; phases < 0.5% share are hidden from the bar |
+
+### 4.6 Per-URL comparison page (`/compare?url={encoded}`)
+
+Displays all recorded entries for a specific URL grouped by HAR file, enabling cross-file comparison.
+
+**Per-file summary row**: HAR file name, hit count, observed status codes, content types, avg/min/max response time, avg size, server IPs, user agents. Expandable to show individual entries.
+
+**Expanded entry detail** — clicking an individual request shows a tabbed panel:
+
+| Tab | Content |
+|---|---|
+| Request | Request headers table + request cookies table |
+| Response | Response headers table + response cookies table |
+| Timing | Per-request timing breakdown: stacked bar (DNS → Connect → SSL → Send → TTFB → Receive) + phase grid showing ms value and % of total for each phase. Phases reported as `-1` in the HAR (not applicable, e.g. cached requests) are displayed as 0 ms. Shows "No timing data available" when all phases sum to zero. |
+
+**All-entries flat table**: Below the per-file sections, a sortable paginated table lists every entry for the URL across all files with columns for HAR file, status, content type, size, and time.
+
+### 4.7 Sorting
 - Clicking a column header sorts by that field ascending; clicking again toggles descending.
 - Active sort column is highlighted with a directional arrow indicator.
 - Sort state resets to the default when the search query changes.
 
-### 4.6 Pagination
+### 4.8 Pagination
 - Flat entry tables (status and content type views) are paginated at 50 rows per page.
 - Previous / Next controls and a "current / total" indicator are shown when more than one page exists.
 - Page resets to 1 when the search query changes.
