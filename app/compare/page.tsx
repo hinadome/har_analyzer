@@ -388,6 +388,7 @@ function ComparePageContent() {
   const filesWithUrl = perFileSummary.filter((r) => r.hits > 0).length;
   const overallAvgTime = urlEntries.reduce((s, e) => s + e.time, 0) / totalHits;
   const overallAvgSize = urlEntries.reduce((s, e) => s + e.contentSize, 0) / totalHits;
+  const uniqueServerIPs = [...new Set(urlEntries.map((e) => e.serverIPAddress).filter(Boolean))];
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -425,7 +426,7 @@ function ComparePageContent() {
         </div>
 
         {/* Stats bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           {[
             { label: 'Total Hits', value: totalHits.toLocaleString() },
             { label: 'Files with URL', value: `${filesWithUrl} / ${analyses.length}` },
@@ -437,6 +438,24 @@ function ComparePageContent() {
               <p className="text-2xl font-bold font-mono text-slate-100">{value}</p>
             </div>
           ))}
+          <div className="bg-slate-800/60 border border-slate-700 rounded-xl px-5 py-4">
+            <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Server IPs</p>
+            <p className="text-2xl font-bold font-mono text-slate-100">{uniqueServerIPs.length}</p>
+            {uniqueServerIPs.length > 0 && uniqueServerIPs.length <= 3 && (
+              <div className="mt-1.5 space-y-0.5">
+                {uniqueServerIPs.map((ip) => (
+                  <Link
+                    key={ip}
+                    href={`/details?type=serverIPAddress&value=${encodeURIComponent(ip)}`}
+                    className="block text-xs font-mono text-cyan-400 hover:text-cyan-300 hover:underline truncate"
+                    title={ip}
+                  >
+                    {ip}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Per-file comparison table */}
