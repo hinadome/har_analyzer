@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, Suspense, Fragment } from 'react';
+import { useState, useMemo, useSyncExternalStore, Suspense, Fragment } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { HarAnalysis, EntryRecord, HarHeader } from '@/types/har';
@@ -10,6 +10,24 @@ import StatusBadge from '@/components/StatusBadge';
 import { statusColorClass } from '@/components/StatusBadge';
 
 type SortField = 'harFileName' | 'status' | 'contentType' | 'contentSize' | 'time' | 'serverIPAddress' | 'userAgent';
+
+function subscribeHarStore(cb: () => void) {
+  window.addEventListener('storage', cb);
+  return () => window.removeEventListener('storage', cb);
+}
+
+// useSyncExternalStore requires getSnapshot to return a stable reference.
+// Cache the parsed result and only replace it when the raw JSON changes.
+let _harStoreCachedJson: string | null = undefined as unknown as string | null;
+let _harStoreCachedValue: ReturnType<typeof loadHarStore> = null;
+function getHarStoreSnapshot() {
+  const json = localStorage.getItem('har_analyzer_data') ?? null;
+  if (json !== _harStoreCachedJson) {
+    _harStoreCachedJson = json;
+    _harStoreCachedValue = json ? (JSON.parse(json) as ReturnType<typeof loadHarStore>) : null;
+  }
+  return _harStoreCachedValue;
+}
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
   return (
@@ -51,8 +69,17 @@ function CookieTable({ cookies }: { cookies: Array<{ name: string; value: string
   );
 }
 
+const TIMING_PHASES = [
+  { key: 'dns',     label: 'DNS',     color: 'text-blue-400',   dot: 'bg-blue-500',   bar: 'bg-blue-500'   },
+  { key: 'connect', label: 'Connect', color: 'text-green-400',  dot: 'bg-green-500',  bar: 'bg-green-500'  },
+  { key: 'ssl',     label: 'SSL',     color: 'text-purple-400', dot: 'bg-purple-500', bar: 'bg-purple-500' },
+  { key: 'send',    label: 'Send',    color: 'text-slate-300',  dot: 'bg-slate-400',  bar: 'bg-slate-400'  },
+  { key: 'wait',    label: 'TTFB',    color: 'text-amber-400',  dot: 'bg-amber-500',  bar: 'bg-amber-500'  },
+  { key: 'receive', label: 'Receive', color: 'text-cyan-400',   dot: 'bg-cyan-500',   bar: 'bg-cyan-500'   },
+] as const;
+
 function EntryDetail({ entry }: { entry: EntryRecord }) {
-  const [tab, setTab] = useState<'req' | 'res'>('req');
+  const [tab, setTab] = useState<'req' | 'res' | 'timing'>('req');
   const tabBase = 'px-3 py-1.5 text-xs font-medium rounded transition-colors';
   const tabActive = `${tabBase} bg-slate-700 text-slate-100`;
   const tabInactive = `${tabBase} text-slate-500 hover:text-slate-300`;
@@ -61,6 +88,12 @@ function EntryDetail({ entry }: { entry: EntryRecord }) {
   const resHeaders = entry.responseHeaders ?? [];
   const reqCookies = entry.requestCookies ?? [];
   const resCookies = entry.responseCookies ?? [];
+
+  const timings = entry.timings;
+  const timingTotal = TIMING_PHASES.reduce((sum, { key }) => {
+    const val = timings[key] ?? -1;
+    return sum + (val > 0 ? val : 0);
+  }, 0);
 
   return (
     <div className="mt-2 border border-slate-700/50 rounded-lg overflow-hidden">
@@ -82,6 +115,9 @@ function EntryDetail({ entry }: { entry: EntryRecord }) {
             {resCookies.length > 0 && (
               <span className="ml-1.5 text-xs bg-slate-600 text-slate-300 rounded px-1">{resCookies.length} cookies</span>
             )}
+          </button>
+          <button className={tab === 'timing' ? tabActive : tabInactive} onClick={() => setTab('timing')}>
+            Timing
           </button>
         </div>
         {tab === 'req' && (
@@ -106,6 +142,50 @@ function EntryDetail({ entry }: { entry: EntryRecord }) {
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Cookies ({resCookies.length})</p>
               <CookieTable cookies={resCookies} />
             </div>
+          </div>
+        )}
+        {tab === 'timing' && (
+          <div className="space-y-3">
+            {timingTotal <= 0 ? (
+              <p className="text-slate-600 text-xs italic">No timing data available</p>
+            ) : (
+              <>
+                <div className="flex h-4 rounded overflow-hidden gap-px">
+                  {TIMING_PHASES.map(({ key, label, bar }) => {
+                    const val = timings[key] ?? -1;
+                    const ms = val > 0 ? val : 0;
+                    const pct = (ms / timingTotal) * 100;
+                    if (pct < 0.5) return null;
+                    return (
+                      <div
+                        key={key}
+                        className={`${bar} transition-all`}
+                        style={{ width: `${pct}%` }}
+                        title={`${label}: ${formatTime(ms)} (${pct.toFixed(1)}%)`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {TIMING_PHASES.map(({ key, label, color, dot }) => {
+                    const val = timings[key] ?? -1;
+                    const ms = val > 0 ? val : 0;
+                    const pct = (ms / timingTotal) * 100;
+                    return (
+                      <div key={key} className="flex items-start gap-1.5">
+                        <span className={`mt-0.5 w-2 h-2 rounded-sm shrink-0 ${dot}`} />
+                        <div>
+                          <p className="text-xs text-slate-500">{label}</p>
+                          <p className={`text-xs font-mono font-semibold ${color}`}>{formatTime(ms)}</p>
+                          <p className="text-xs text-slate-600">{pct.toFixed(1)}%</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-slate-600">TTFB = server think time (wait phase). Phases &lt;0.5% hidden from bar.</p>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -297,8 +377,9 @@ function ComparePageContent() {
   const searchParams = useSearchParams();
   const url = searchParams.get('url') ?? '';
 
-  const [analyses] = useState<HarAnalysis[]>(() => loadHarStore()?.analyses ?? []);
-  const [allEntries] = useState<EntryRecord[]>(() => loadHarStore()?.analyses.flatMap((a) => a.entries) ?? []);
+  const harStore = useSyncExternalStore(subscribeHarStore, getHarStoreSnapshot, () => null);
+  const analyses = useMemo(() => harStore?.analyses ?? [], [harStore]);
+  const allEntries = useMemo(() => harStore?.analyses.flatMap((a) => a.entries) ?? [], [harStore]);
 
   const [sortField, setSortField] = useState<SortField>('harFileName');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
