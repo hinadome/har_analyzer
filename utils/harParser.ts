@@ -47,8 +47,10 @@ export function analyzeHar(har: HarFile, fileName: string, fileIndex: number): H
   const entries: EntryRecord[] = [];
   const statusCodeCounts: Record<number, number> = {};
   const contentTypeCounts: Record<string, number> = {};
+  const contentSizeBucketCounts: Record<string, number> = {};
   const serverIPCounts: Record<string, number> = {};
   const uniqueUrls = new Set<string>();
+  let totalContentSize = 0;
   for (const entry of har.log.entries) {
     const url = entry.request?.url ?? '';
     const method = entry.request?.method ?? '';
@@ -82,8 +84,11 @@ export function analyzeHar(har: HarFile, fileName: string, fileIndex: number): H
 
     entries.push({ url, method, status, statusText, contentType, contentSize, bodySize, time, timings, harFileName: fileName, harFileIndex: fileIndex, requestHeaders, responseHeaders, requestCookies, responseCookies, serverIPAddress, userAgent });
 
+    totalContentSize += contentSize;
     statusCodeCounts[status] = (statusCodeCounts[status] || 0) + 1;
     contentTypeCounts[contentType] = (contentTypeCounts[contentType] || 0) + 1;
+    const bucket = getContentSizeBucket(contentSize);
+    contentSizeBucketCounts[bucket] = (contentSizeBucketCounts[bucket] || 0) + 1;
     const ipKey = serverIPAddress || '(no IP)';
     serverIPCounts[ipKey] = (serverIPCounts[ipKey] || 0) + 1;
     uniqueUrls.add(url);
@@ -93,8 +98,10 @@ export function analyzeHar(har: HarFile, fileName: string, fileIndex: number): H
     fileName,
     fileIndex,
     totalRequests: entries.length,
+    totalContentSize,
     statusCodeCounts,
     contentTypeCounts,
+    contentSizeBucketCounts,
     serverIPCounts,
     uniqueUrlCount: uniqueUrls.size,
     entries,
@@ -135,6 +142,25 @@ export function getAllServerIPs(analyses: HarAnalysis[]): string[] {
   const sorted = Array.from(ips).filter((ip) => ip !== '(no IP)').sort();
   if (ips.has('(no IP)')) sorted.push('(no IP)');
   return sorted;
+}
+
+const CONTENT_SIZE_BUCKETS: Array<{ label: string; max: number }> = [
+  { label: '0 B – 1 KB',     max: 1024 },
+  { label: '1 KB – 10 KB',   max: 10 * 1024 },
+  { label: '10 KB – 100 KB', max: 100 * 1024 },
+  { label: '100 KB – 1 MB',  max: 1024 * 1024 },
+  { label: '1 MB+',          max: Infinity },
+];
+
+export function getContentSizeBucket(bytes: number): string {
+  for (const bucket of CONTENT_SIZE_BUCKETS) {
+    if (bytes < bucket.max) return bucket.label;
+  }
+  return CONTENT_SIZE_BUCKETS[CONTENT_SIZE_BUCKETS.length - 1].label;
+}
+
+export function getContentSizeBuckets(): string[] {
+  return CONTENT_SIZE_BUCKETS.map((b) => b.label);
 }
 
 export function formatBytes(bytes: number): string {

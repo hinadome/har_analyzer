@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { HarAnalysis } from '@/types/har';
-import { getAllStatusCodes, getAllContentTypes, getAllServerIPs } from '@/utils/harParser';
+import { getAllStatusCodes, getAllContentTypes, getAllServerIPs, getContentSizeBuckets, formatBytes } from '@/utils/harParser';
 import { statusColorClass } from '@/components/StatusBadge';
 
 interface ComparisonTableProps {
@@ -18,6 +18,7 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
   const allStatusCodes = getAllStatusCodes(analyses);
   const allContentTypes = getAllContentTypes(analyses);
   const allServerIPs = getAllServerIPs(analyses);
+  const contentSizeBuckets = getContentSizeBuckets();
 
   const thClass = 'py-3 px-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider bg-slate-900/60';
   const tdClass = 'py-2.5 px-4 text-sm text-slate-300 border-t border-slate-700/50 text-right';
@@ -110,6 +111,38 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
               {analyses.map((a) => (
                 <td key={a.fileIndex} className={tdClass}>
                   <Cell value={a.contentTypeCounts[ct]} />
+                </td>
+              ))}
+            </tr>
+          ))}
+
+          {/* Content Size Section */}
+          <tr className={sectionRowClass}>
+            <td colSpan={analyses.length + 1} className="py-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-widest border-t border-slate-700">
+              Content Size
+            </td>
+          </tr>
+          <tr className="hover:bg-slate-800/60 transition-colors">
+            <td className={`${labelTdClass} text-slate-300 font-semibold`}>Total Response Size</td>
+            {analyses.map((a) => (
+              <td key={a.fileIndex} className={tdClass}>
+                <span className="font-mono font-semibold">{formatBytes(a.totalContentSize ?? 0)}</span>
+              </td>
+            ))}
+          </tr>
+          {contentSizeBuckets.map((bucket) => (
+            <tr key={bucket} className="hover:bg-slate-800/60 transition-colors">
+              <td className={labelTdClass}>
+                <Link
+                  href={`/details?type=contentSizeBucket&value=${encodeURIComponent(bucket)}`}
+                  className="text-orange-400 hover:text-orange-300 hover:underline font-mono text-xs transition-colors"
+                >
+                  {bucket}
+                </Link>
+              </td>
+              {analyses.map((a) => (
+                <td key={a.fileIndex} className={tdClass}>
+                  <Cell value={a.contentSizeBucketCounts?.[bucket]} />
                 </td>
               ))}
             </tr>

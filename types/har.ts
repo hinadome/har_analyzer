@@ -97,8 +97,10 @@ export interface HarAnalysis {
   fileName: string;
   fileIndex: number;
   totalRequests: number;
+  totalContentSize: number;
   statusCodeCounts: Record<number, number>;
   contentTypeCounts: Record<string, number>;
+  contentSizeBucketCounts: Record<string, number>;
   serverIPCounts: Record<string, number>;
   uniqueUrlCount: number;
   entries: EntryRecord[];
@@ -108,4 +110,4 @@ export interface HarStore {
   analyses: HarAnalysis[];
 }
 
-export type DetailType = 'status' | 'url' | 'contentType' | 'serverIPAddress' | 'userAgent';
+export type DetailType = 'status' | 'url' | 'contentType' | 'contentSizeBucket' | 'serverIPAddress' | 'userAgent';

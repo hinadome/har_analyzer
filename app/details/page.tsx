@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { EntryRecord, HarAnalysis, DetailType } from '@/types/har';
 import { loadHarStore } from '@/utils/storage';
-import { formatBytes, formatTime } from '@/utils/harParser';
+import { formatBytes, formatTime, getContentSizeBucket } from '@/utils/harParser';
 import StatusBadge from '@/components/StatusBadge';
 
 interface GroupedByUrl {
@@ -58,6 +58,8 @@ function DetailsPageContent() {
       } else {
         entries = entries.filter((e) => (e.serverIPAddress ?? '') === value);
       }
+    } else if (type === 'contentSizeBucket' && value) {
+      entries = entries.filter((e) => getContentSizeBucket(e.contentSize) === value);
     } else if (type === 'userAgent' && value) {
       entries = entries.filter((e) => (e.userAgent ?? '') === value);
     }
@@ -129,6 +131,8 @@ function DetailsPageContent() {
       ? `Status Code ${value}`
       : type === 'contentType'
       ? `Content Type: ${value}`
+      : type === 'contentSizeBucket'
+      ? `Content Size: ${value}`
       : type === 'serverIPAddress'
       ? value === '(no IP)' ? 'Requests with No Server IP' : `Server IP: ${value}`
       : type === 'userAgent'
