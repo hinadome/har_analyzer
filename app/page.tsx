@@ -1,64 +1,156 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import FileUpload from '@/components/FileUpload';
+import ComparisonTable from '@/components/ComparisonTable';
+import { HarAnalysis } from '@/types/har';
+import { parseHarFile, analyzeHar, buildHarStore } from '@/utils/harParser';
+import { saveHarStore, loadHarStore, clearHarStore } from '@/utils/storage';
+
+export default function HomePage() {
+  const [analyses, setAnalyses] = useState<HarAnalysis[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const stored = loadHarStore();
+    if (stored?.analyses?.length) {
+      setAnalyses(stored.analyses);
+    }
+  }, []);
+
+  const handleFilesSelected = async (files: File[]) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const startIndex = analyses.length;
+      const newAnalyses: HarAnalysis[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const har = await parseHarFile(file);
+        const analysis = analyzeHar(har, file.name, startIndex + i);
+        newAnalyses.push(analysis);
+      }
+
+      const merged = [...analyses, ...newAnalyses];
+      const store = buildHarStore(merged);
+      saveHarStore(store);
+      setAnalyses(merged);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to process files');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleClear = () => {
+    clearHarStore();
+    setAnalyses([]);
+    setError(null);
+  };
+
+  const removeFile = (index: number) => {
+    const updated = analyses
+      .filter((_, i) => i !== index)
+      .map((a, i) => ({ ...a, fileIndex: i, entries: a.entries.map((e) => ({ ...e, harFileIndex: i })) }));
+    const store = buildHarStore(updated);
+    saveHarStore(store);
+    setAnalyses(updated);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <svg className="w-7 h-7 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <h1 className="text-xl font-bold tracking-tight">HAR Analyzer</h1>
+          </div>
+          {analyses.length > 0 && (
+            <button
+              onClick={handleClear}
+              className="text-sm text-slate-400 hover:text-red-400 transition-colors flex items-center gap-1.5"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Clear all
+            </button>
+          )}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+        <section>
+          <h2 className="text-lg font-semibold text-slate-200 mb-4">Upload HAR Files</h2>
+          <FileUpload onFilesSelected={handleFilesSelected} isLoading={isLoading} />
+        </section>
+
+        {error && (
+          <div className="rounded-lg bg-red-950/40 border border-red-800/60 px-4 py-3 text-red-300 text-sm flex items-start gap-2">
+            <svg className="w-5 h-5 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </div>
+        )}
+
+        {isLoading && (
+          <div className="flex items-center gap-3 text-slate-400">
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            Parsing HAR files...
+          </div>
+        )}
+
+        {analyses.length > 0 && (
+          <>
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-slate-200">Loaded Files</h2>
+                <span className="text-sm text-slate-500">{analyses.length} file{analyses.length !== 1 ? 's' : ''}</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {analyses.map((a, i) => (
+                  <div key={i} className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm hover:border-blue-600 transition-colors">
+                    <Link href={`/file/${i}`} className="flex items-center gap-2 min-w-0">
+                      <span className="text-slate-300 font-mono truncate max-w-[200px]" title={a.fileName}>{a.fileName}</span>
+                      <span className="text-slate-500 text-xs shrink-0">{a.totalRequests.toLocaleString()} reqs</span>
+                    </Link>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removeFile(i); }}
+                      className="text-slate-600 hover:text-red-400 transition-colors ml-1 shrink-0"
+                      title="Remove file"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-slate-200 mb-4">Comparison Summary</h2>
+              <p className="text-sm text-slate-500 mb-4">
+                Click on a status code, &quot;Unique URLs&quot;, or a content type to view detailed breakdowns.
+              </p>
+              <ComparisonTable analyses={analyses} />
+            </section>
+          </>
+        )}
+
+        {!analyses.length && !isLoading && (
+          <div className="text-center py-16 text-slate-600">
+            <p className="text-lg">Upload one or more HAR files to start analyzing</p>
+            <p className="text-sm mt-2">HAR (HTTP Archive) files can be exported from browser DevTools</p>
+          </div>
+        )}
       </main>
     </div>
   );

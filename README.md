@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HAR Analyzer
+
+A browser-based tool for uploading, analyzing, and comparing multiple HAR (HTTP Archive) files side by side. Built with Next.js, TypeScript, and Tailwind CSS.
+
+## Features
+
+- Upload multiple `.har` files via drag-and-drop or file browser
+- Comparison table showing request counts, status codes, unique URLs, and content types per file
+- Clickable status codes, URLs, and content types that link to detailed breakdowns
+- Details pages with sortable, filterable, paginated entry tables
+- URL details grouped by endpoint with per-file hit counts and expandable rows
+- All data processed entirely in the browser — no server required
+- Persistent state via `localStorage` across page refreshes
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Other scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server on port 3000 |
+| `npm run build` | Build for production |
+| `npm run start` | Start production server |
+| `npm run lint` | Run ESLint |
 
-## Learn More
+## Usage
 
-To learn more about Next.js, take a look at the following resources:
+1. **Upload HAR files** — drag one or more `.har` files onto the upload zone, or click to open the file picker. Files can be added incrementally.
+2. **Review the comparison table** — see total requests, unique URL counts, per-status-code counts, and per-content-type counts for each file in a single table.
+3. **Drill into details** — click any status code, the "Unique URLs" row, or any content type label to open a details page filtered to that dimension.
+4. **Remove or clear files** — click the × on a file chip to remove it, or use "Clear all" in the header to reset.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### How to export a HAR file from your browser
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Chrome / Edge**: DevTools → Network tab → right-click any request → "Save all as HAR with content"
+- **Firefox**: DevTools → Network tab → gear icon → "Save All as HAR"
+- **Safari**: DevTools → Network tab → Export icon
 
-## Deploy on Vercel
+## Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+har_analyzer/
+├── app/
+│   ├── layout.tsx          # Root layout
+│   ├── page.tsx            # Main page: upload + comparison table
+│   ├── globals.css         # Global styles
+│   └── details/
+│       └── page.tsx        # Details page (status / URL / content type)
+├── components/
+│   ├── FileUpload.tsx      # Drag-and-drop file upload zone
+│   └── ComparisonTable.tsx # Cross-file comparison table
+├── types/
+│   └── har.ts              # HAR format and analysis TypeScript types
+└── utils/
+    ├── harParser.ts        # HAR parsing and analysis logic
+    └── storage.ts          # localStorage read/write helpers
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tech Stack
+
+- **Next.js 16** (App Router, client components)
+- **TypeScript** (strict mode)
+- **Tailwind CSS v4** (dark theme)
+- **React 19**
