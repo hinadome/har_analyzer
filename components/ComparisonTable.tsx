@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { HarAnalysis } from '@/types/har';
-import { getAllStatusCodes, getAllContentTypes } from '@/utils/harParser';
+import { getAllStatusCodes, getAllContentTypes, getAllServerIPs } from '@/utils/harParser';
 import { statusColorClass } from '@/components/StatusBadge';
 
 interface ComparisonTableProps {
@@ -17,6 +17,7 @@ function Cell({ value }: { value: number | undefined }) {
 export default function ComparisonTable({ analyses }: ComparisonTableProps) {
   const allStatusCodes = getAllStatusCodes(analyses);
   const allContentTypes = getAllContentTypes(analyses);
+  const allServerIPs = getAllServerIPs(analyses);
 
   const thClass = 'py-3 px-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider bg-slate-900/60';
   const tdClass = 'py-2.5 px-4 text-sm text-slate-300 border-t border-slate-700/50 text-right';
@@ -113,6 +114,39 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
               ))}
             </tr>
           ))}
+
+          {/* Server IPs Section */}
+          <tr className={sectionRowClass}>
+            <td colSpan={analyses.length + 1} className="py-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-widest border-t border-slate-700">
+              Server IPs
+            </td>
+          </tr>
+          {allServerIPs.length === 0 ? (
+            <tr>
+              <td className={`${labelTdClass} text-slate-600 italic text-xs`}>No data — re-upload to populate</td>
+              {analyses.map((a) => (
+                <td key={a.fileIndex} className={tdClass}><span className="text-slate-600">—</span></td>
+              ))}
+            </tr>
+          ) : (
+            allServerIPs.map((ip) => (
+              <tr key={ip} className="hover:bg-slate-800/60 transition-colors">
+                <td className={labelTdClass}>
+                  <Link
+                    href={`/details?type=serverIPAddress&value=${encodeURIComponent(ip)}`}
+                    className={`hover:underline font-mono text-xs transition-colors italic ${ip === '(no IP)' ? 'text-slate-400 hover:text-slate-200' : 'text-cyan-400 hover:text-cyan-300 not-italic'}`}
+                  >
+                    {ip}
+                  </Link>
+                </td>
+                {analyses.map((a) => (
+                  <td key={a.fileIndex} className={tdClass}>
+                    <Cell value={a.serverIPCounts?.[ip]} />
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>

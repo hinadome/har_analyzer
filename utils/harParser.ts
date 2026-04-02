@@ -47,6 +47,7 @@ export function analyzeHar(har: HarFile, fileName: string, fileIndex: number): H
   const entries: EntryRecord[] = [];
   const statusCodeCounts: Record<number, number> = {};
   const contentTypeCounts: Record<string, number> = {};
+  const serverIPCounts: Record<string, number> = {};
   const uniqueUrls = new Set<string>();
   for (const entry of har.log.entries) {
     const url = entry.request?.url ?? '';
@@ -82,6 +83,8 @@ export function analyzeHar(har: HarFile, fileName: string, fileIndex: number): H
 
     statusCodeCounts[status] = (statusCodeCounts[status] || 0) + 1;
     contentTypeCounts[contentType] = (contentTypeCounts[contentType] || 0) + 1;
+    const ipKey = serverIPAddress || '(no IP)';
+    serverIPCounts[ipKey] = (serverIPCounts[ipKey] || 0) + 1;
     uniqueUrls.add(url);
   }
 
@@ -91,6 +94,7 @@ export function analyzeHar(har: HarFile, fileName: string, fileIndex: number): H
     totalRequests: entries.length,
     statusCodeCounts,
     contentTypeCounts,
+    serverIPCounts,
     uniqueUrlCount: uniqueUrls.size,
     entries,
   };
@@ -118,6 +122,18 @@ export function getAllContentTypes(analyses: HarAnalysis[]): string[] {
     }
   }
   return Array.from(types).sort();
+}
+
+export function getAllServerIPs(analyses: HarAnalysis[]): string[] {
+  const ips = new Set<string>();
+  for (const a of analyses) {
+    for (const ip of Object.keys(a.serverIPCounts ?? {})) {
+      ips.add(ip);
+    }
+  }
+  const sorted = Array.from(ips).filter((ip) => ip !== '(no IP)').sort();
+  if (ips.has('(no IP)')) sorted.push('(no IP)');
+  return sorted;
 }
 
 export function formatBytes(bytes: number): string {

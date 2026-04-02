@@ -53,7 +53,11 @@ function DetailsPageContent() {
     } else if (type === 'contentType' && value) {
       entries = entries.filter((e) => e.contentType === value);
     } else if (type === 'serverIPAddress' && value) {
-      entries = entries.filter((e) => (e.serverIPAddress ?? '') === value);
+      if (value === '(no IP)') {
+        entries = entries.filter((e) => !(e.serverIPAddress ?? ''));
+      } else {
+        entries = entries.filter((e) => (e.serverIPAddress ?? '') === value);
+      }
     } else if (type === 'userAgent' && value) {
       entries = entries.filter((e) => (e.userAgent ?? '') === value);
     }
@@ -126,7 +130,7 @@ function DetailsPageContent() {
       : type === 'contentType'
       ? `Content Type: ${value}`
       : type === 'serverIPAddress'
-      ? `Server IP: ${value}`
+      ? value === '(no IP)' ? 'Requests with No Server IP' : `Server IP: ${value}`
       : type === 'userAgent'
       ? `User Agent: ${value}`
       : 'All URLs';

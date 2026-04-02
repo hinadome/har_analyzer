@@ -88,6 +88,7 @@ export interface HarAnalysis {
   totalRequests: number;
   statusCodeCounts: Record<number, number>;
   contentTypeCounts: Record<string, number>;
+  serverIPCounts: Record<string, number>;
   uniqueUrlCount: number;
   entries: EntryRecord[];
 }
