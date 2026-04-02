@@ -67,6 +67,60 @@ export default function FileDetailPage() {
     setPage(1);
   };
 
+  // Normalize HAR timing value (-1 means N/A in HAR spec)
+  const normT = (v?: number) => (v !== undefined && v > 0 ? v : 0);
+
+  const perfStats = useMemo(() => {
+    if (!analysis) return null;
+    const times = analysis.entries.map((e) => e.time).sort((a, b) => a - b);
+    const n = times.length;
+    if (!n) return null;
+    const pct = (p: number) => times[Math.min(Math.ceil((p / 100) * n) - 1, n - 1)];
+    const totalSize = analysis.entries.reduce((s, e) => s + e.contentSize, 0);
+    const errors = analysis.entries.filter((e) => e.status >= 400).length;
+    return {
+      p50: pct(50), p95: pct(95), p99: pct(99),
+      errorRate: (errors / n) * 100,
+      totalSize,
+      avgTime: times.reduce((s, t) => s + t, 0) / n,
+    };
+  }, [analysis]);
+
+  const slowest = useMemo(() => {
+    if (!analysis) return [];
+    return [...analysis.entries].sort((a, b) => b.time - a.time).slice(0, 10);
+  }, [analysis]);
+
+  const largest = useMemo(() => {
+    if (!analysis) return [];
+    return [...analysis.entries].sort((a, b) => b.contentSize - a.contentSize).slice(0, 10);
+  }, [analysis]);
+
+  const timingAvgs = useMemo(() => {
+    if (!analysis || !analysis.entries.length) return null;
+    const n = analysis.entries.length;
+    const sum = { dns: 0, connect: 0, ssl: 0, send: 0, wait: 0, receive: 0 };
+    for (const e of analysis.entries) {
+      const t = e.timings ?? {};
+      sum.dns     += normT(t.dns);
+      sum.connect += normT(t.connect);
+      sum.ssl     += normT(t.ssl);
+      sum.send    += normT(t.send);
+      sum.wait    += normT(t.wait);
+      sum.receive += normT(t.receive);
+    }
+    const avgs = {
+      dns:     sum.dns / n,
+      connect: sum.connect / n,
+      ssl:     sum.ssl / n,
+      send:    sum.send / n,
+      wait:    sum.wait / n,
+      receive: sum.receive / n,
+    };
+    const total = Object.values(avgs).reduce((s, v) => s + v, 0);
+    return { avgs, total };
+  }, [analysis]);
+
   const statusBreakdown = useMemo(() => {
     if (!analysis) return [];
     return Object.entries(analysis.statusCodeCounts)
@@ -218,6 +272,171 @@ export default function FileDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Section 1: Performance Summary ── */}
+        {perfStats && (
+          <div>
+            <h3 className="text-base font-semibold text-slate-200 mb-3">Performance Summary</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              {[
+                { label: 'P50 (Median)', value: formatTime(perfStats.p50), sub: 'response time' },
+                { label: 'P95', value: formatTime(perfStats.p95), sub: 'response time' },
+                { label: 'P99', value: formatTime(perfStats.p99), sub: 'response time' },
+                { label: 'Error Rate', value: `${perfStats.errorRate.toFixed(1)}%`, sub: '4xx / 5xx' },
+                { label: 'Total Transferred', value: formatBytes(perfStats.totalSize), sub: 'response bodies' },
+              ].map(({ label, value, sub }) => (
+                <div key={label} className="bg-slate-800/60 border border-slate-700 rounded-xl px-5 py-4">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{label}</p>
+                  <p className="text-xl font-bold font-mono text-slate-100">{value}</p>
+                  <p className="text-xs text-slate-600 mt-0.5">{sub}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Section 2: Slowest & Largest ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Slowest */}
+          <div>
+            <h3 className="text-base font-semibold text-slate-200 mb-3">Slowest Requests <span className="text-sm font-normal text-slate-500">top 10</span></h3>
+            <div className="rounded-xl border border-slate-700 overflow-hidden">
+              {slowest.length === 0 ? (
+                <p className="text-slate-600 text-sm px-4 py-6 text-center">No data</p>
+              ) : (() => {
+                const maxTime = slowest[0].time;
+                return (
+                  <table className="w-full border-collapse">
+                    <tbody>
+                      {slowest.map((e, i) => (
+                        <tr key={i} className="border-t border-slate-700/50 hover:bg-slate-800/50 transition-colors">
+                          <td className="py-2 px-3 text-xs font-mono text-slate-400 w-6 text-right">{i + 1}</td>
+                          <td className="py-2 px-3 max-w-[180px]">
+                            <Link
+                              href={`/compare?url=${encodeURIComponent(e.url)}`}
+                              className="text-blue-400 hover:text-blue-300 hover:underline font-mono text-xs block truncate"
+                              title={e.url}
+                            >
+                              {e.url.length > 60 ? e.url.slice(0, 60) + '…' : e.url}
+                            </Link>
+                            <div className="mt-1 h-1.5 rounded-full bg-slate-700/60 overflow-hidden w-full">
+                              <div
+                                className="h-full rounded-full bg-amber-500"
+                                style={{ width: `${(e.time / maxTime) * 100}%` }}
+                              />
+                            </div>
+                          </td>
+                          <td className="py-2 px-3 text-xs font-mono text-amber-400 text-right whitespace-nowrap">{formatTime(e.time)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Largest */}
+          <div>
+            <h3 className="text-base font-semibold text-slate-200 mb-3">Largest Resources <span className="text-sm font-normal text-slate-500">top 10</span></h3>
+            <div className="rounded-xl border border-slate-700 overflow-hidden">
+              {largest.length === 0 ? (
+                <p className="text-slate-600 text-sm px-4 py-6 text-center">No data</p>
+              ) : (() => {
+                const maxSize = largest[0].contentSize;
+                return (
+                  <table className="w-full border-collapse">
+                    <tbody>
+                      {largest.map((e, i) => (
+                        <tr key={i} className="border-t border-slate-700/50 hover:bg-slate-800/50 transition-colors">
+                          <td className="py-2 px-3 text-xs font-mono text-slate-400 w-6 text-right">{i + 1}</td>
+                          <td className="py-2 px-3 max-w-[180px]">
+                            <Link
+                              href={`/compare?url=${encodeURIComponent(e.url)}`}
+                              className="text-blue-400 hover:text-blue-300 hover:underline font-mono text-xs block truncate"
+                              title={e.url}
+                            >
+                              {e.url.length > 60 ? e.url.slice(0, 60) + '…' : e.url}
+                            </Link>
+                            <div className="mt-1 h-1.5 rounded-full bg-slate-700/60 overflow-hidden w-full">
+                              <div
+                                className="h-full rounded-full bg-cyan-500"
+                                style={{ width: `${maxSize > 0 ? (e.contentSize / maxSize) * 100 : 0}%` }}
+                              />
+                            </div>
+                          </td>
+                          <td className="py-2 px-3 text-xs font-mono text-cyan-400 text-right whitespace-nowrap">{formatBytes(e.contentSize)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Section 3: Timing Breakdown ── */}
+        {timingAvgs && timingAvgs.total > 0 && (
+          <div>
+            <h3 className="text-base font-semibold text-slate-200 mb-3">
+              Avg Timing Breakdown
+              <span className="ml-2 text-sm font-normal text-slate-500">per request phase</span>
+            </h3>
+            <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-5 space-y-4">
+              {/* Stacked bar */}
+              <div>
+                <div className="flex h-5 rounded-lg overflow-hidden gap-px">
+                  {([
+                    { key: 'dns',     label: 'DNS',     color: 'bg-blue-500' },
+                    { key: 'connect', label: 'Connect', color: 'bg-green-500' },
+                    { key: 'ssl',     label: 'SSL',     color: 'bg-purple-500' },
+                    { key: 'send',    label: 'Send',    color: 'bg-slate-400' },
+                    { key: 'wait',    label: 'TTFB',    color: 'bg-amber-500' },
+                    { key: 'receive', label: 'Receive', color: 'bg-cyan-500' },
+                  ] as const).map(({ key, label, color }) => {
+                    const val = timingAvgs.avgs[key];
+                    const pct = timingAvgs.total > 0 ? (val / timingAvgs.total) * 100 : 0;
+                    if (pct < 0.5) return null;
+                    return (
+                      <div
+                        key={key}
+                        className={`${color} transition-all`}
+                        style={{ width: `${pct}%` }}
+                        title={`${label}: ${formatTime(val)} (${pct.toFixed(1)}%)`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Legend + values */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                {([
+                  { key: 'dns',     label: 'DNS',     color: 'text-blue-400',   dot: 'bg-blue-500'   },
+                  { key: 'connect', label: 'Connect', color: 'text-green-400',  dot: 'bg-green-500'  },
+                  { key: 'ssl',     label: 'SSL',     color: 'text-purple-400', dot: 'bg-purple-500' },
+                  { key: 'send',    label: 'Send',    color: 'text-slate-300',  dot: 'bg-slate-400'  },
+                  { key: 'wait',    label: 'TTFB',    color: 'text-amber-400',  dot: 'bg-amber-500'  },
+                  { key: 'receive', label: 'Receive', color: 'text-cyan-400',   dot: 'bg-cyan-500'   },
+                ] as const).map(({ key, label, color, dot }) => {
+                  const val = timingAvgs.avgs[key];
+                  const pct = timingAvgs.total > 0 ? (val / timingAvgs.total) * 100 : 0;
+                  return (
+                    <div key={key} className="flex items-start gap-2">
+                      <span className={`mt-1 w-2.5 h-2.5 rounded-sm shrink-0 ${dot}`} />
+                      <div>
+                        <p className="text-xs text-slate-500">{label}</p>
+                        <p className={`text-sm font-mono font-semibold ${color}`}>{formatTime(val)}</p>
+                        <p className="text-xs text-slate-600">{pct.toFixed(1)}%</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-slate-600">Averages across {analysis.totalRequests.toLocaleString()} requests. TTFB = server think time (wait phase). Phases with &lt;0.5% share are hidden from bar.</p>
+            </div>
+          </div>
+        )}
 
         {/* Entry Table */}
         <div>

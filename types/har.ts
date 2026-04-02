@@ -63,6 +63,16 @@ export interface HarFile {
   log: HarLog;
 }
 
+export interface HarTimings {
+  send: number;
+  wait: number;
+  receive: number;
+  blocked?: number;
+  dns?: number;
+  connect?: number;
+  ssl?: number;
+}
+
 export interface EntryRecord {
   url: string;
   method: string;
@@ -72,6 +82,7 @@ export interface EntryRecord {
   contentSize: number;
   bodySize: number;
   time: number;
+  timings: HarTimings;
   harFileName: string;
   harFileIndex: number;
   requestHeaders: HarHeader[];

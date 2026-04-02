@@ -62,6 +62,7 @@ export function analyzeHar(har: HarFile, fileName: string, fileIndex: number): H
     const responseHeaders = entry.response?.headers ?? [];
     const serverIPAddress = entry.serverIPAddress ?? '';
     const userAgent = requestHeaders.find((h) => h.name.toLowerCase() === 'user-agent')?.value ?? '';
+    const timings = entry.timings ?? { send: 0, wait: 0, receive: 0 };
 
     // Many HAR exporters leave the cookies array empty and rely on the
     // Cookie / Set-Cookie headers instead. Fall back to parsing those.
@@ -79,7 +80,7 @@ export function analyzeHar(har: HarFile, fileName: string, fileIndex: number): H
     }
 
 
-    entries.push({ url, method, status, statusText, contentType, contentSize, bodySize, time, harFileName: fileName, harFileIndex: fileIndex, requestHeaders, responseHeaders, requestCookies, responseCookies, serverIPAddress, userAgent });
+    entries.push({ url, method, status, statusText, contentType, contentSize, bodySize, time, timings, harFileName: fileName, harFileIndex: fileIndex, requestHeaders, responseHeaders, requestCookies, responseCookies, serverIPAddress, userAgent });
 
     statusCodeCounts[status] = (statusCodeCounts[status] || 0) + 1;
     contentTypeCounts[contentType] = (contentTypeCounts[contentType] || 0) + 1;
