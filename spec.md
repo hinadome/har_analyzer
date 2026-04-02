@@ -53,12 +53,34 @@ HAR Analyzer is a client-side web application that ingests one or more HAR (HTTP
 | Server IP | `entry.serverIPAddress` |
 | Timing phases | `entry.timings`: `dns`, `connect`, `ssl`, `send`, `wait`, `receive`, `blocked` (optional phases use `-1` when not applicable) |
 
-### 2.2 Content type normalization
+### 2.2 HAR timing model
+
+The HAR spec defines **two separate timing concepts**. This app uses only the per-request one.
+
+**`entry.timings`** (used) — phase breakdown for each individual HTTP request:
+
+| Phase | What it measures | Optional? |
+|---|---|---|
+| `blocked` | Time queued before the connection could start (browser connection limit, cache check) | Yes — `-1` if N/A |
+| `dns` | DNS lookup time | Yes — `-1` if address was cached or connection was reused |
+| `connect` | TCP handshake time | Yes — `-1` if keep-alive connection was reused |
+| `ssl` | TLS negotiation time (overlaps with `connect` on HTTPS) | Yes — `-1` if HTTP or connection was reused |
+| `send` | Time to transmit the request body to the server | No |
+| `wait` | **TTFB** — time from request sent to first byte of response (server think time) | No |
+| `receive` | Time to download the response body | No |
+
+`entry.time` is the total request duration including all phases. The `blocked` phase is stored but not shown in timing breakdown displays; as a result the bar total may be slightly less than `entry.time` for requests with a non-trivial queuing delay.
+
+Optional phases report `-1` to indicate "not applicable" (e.g. `dns` and `connect` are `-1` on keep-alive requests). The app treats `-1` as `0` when computing totals and percentages.
+
+**`pageTimings`** (not used) — browser-level page milestones stored in `log.pages[].pageTimings` (`onContentLoaded`, `onLoad`). These represent whole-page load events, not individual request costs, and are not read by this application.
+
+### 2.4 Content type normalization
 - The `mimeType` value is split on `;` and only the first segment is retained (strips charset and boundary parameters).
 - The result is lowercased and trimmed.
 - A missing or empty `mimeType` is recorded as `unknown`.
 
-### 2.3 Per-file aggregates computed
+### 2.5 Per-file aggregates computed
 - `totalRequests` — total entry count
 - `statusCodeCounts` — map of `{ statusCode: count }`
 - `contentTypeCounts` — map of `{ normalizedMimeType: count }`
@@ -157,7 +179,7 @@ Displays a performance summary for a single loaded HAR file.
 | Performance Summary | P50, P95, P99 response times; error rate (4xx/5xx %); total transferred bytes |
 | Slowest Requests | Top 10 entries by `time`, shown with URL, duration, and a proportional bar; links to compare page |
 | Largest Resources | Top 10 entries by `contentSize`, shown with URL, size, and a proportional bar; links to compare page |
-| Avg Timing Breakdown | Stacked bar + legend grid showing average DNS, Connect, SSL, Send, TTFB (wait), and Receive time across all requests; phases < 0.5% share are hidden from the bar |
+| Avg Timing Breakdown | Stacked bar + legend grid showing average DNS, Connect, SSL, Send, TTFB (wait), and Receive time across all requests; phases < 0.5% share are hidden from the bar. Calculated as `sum(phase_ms across all entries) / n`, with HAR `-1` values treated as 0. `blocked` is excluded from this display. |
 
 ### 4.6 Per-URL comparison page (`/compare?url={encoded}`)
 
@@ -171,7 +193,7 @@ Displays all recorded entries for a specific URL grouped by HAR file, enabling c
 |---|---|
 | Request | Request headers table + request cookies table |
 | Response | Response headers table + response cookies table |
-| Timing | Per-request timing breakdown: stacked bar (DNS → Connect → SSL → Send → TTFB → Receive) + phase grid showing ms value and % of total for each phase. Phases reported as `-1` in the HAR (not applicable, e.g. cached requests) are displayed as 0 ms. Shows "No timing data available" when all phases sum to zero. |
+| Timing | Per-request timing breakdown: stacked bar (DNS → Connect → SSL → Send → TTFB → Receive) + phase grid showing ms value and % of total for each phase. Calculated as `phase_ms / sum(all phases)` for a single entry, with HAR `-1` values treated as 0. `blocked` is excluded from this display. Phases < 0.5% of total are hidden from the bar but shown in the grid. Shows "No timing data available" when all phases sum to zero (e.g. fully cached responses). |
 
 **All-entries flat table**: Below the per-file sections, a sortable paginated table lists every entry for the URL across all files with columns for HAR file, status, content type, size, and time.
 

@@ -42,6 +42,23 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 5. **Compare a URL across files** — from the URL detail view, click any URL to open the compare page. Expand any request row to see its headers, cookies, and a **Timing** tab showing phase-by-phase breakdown (DNS, TCP connect, SSL, send time, TTFB, and receive time).
 6. **Remove or clear files** — click the × on a file chip to remove it, or use "Clear all" in the header to reset.
 
+### Understanding timing data
+
+HAR files record per-request timing phases from `entry.timings`. The app displays six of them:
+
+| Phase | What it measures |
+|-------|-----------------|
+| DNS | DNS lookup time (0 ms on cached/reused connections) |
+| Connect | TCP handshake time (0 ms on keep-alive connections) |
+| SSL | TLS negotiation time (0 ms on HTTP or reused connections) |
+| Send | Time to transmit the request to the server |
+| TTFB | Server think time — from request sent to first byte received |
+| Receive | Time to download the response body |
+
+Phases the browser marks as "not applicable" (`-1` in the HAR spec) are shown as 0 ms. The `blocked` phase (connection queuing time) is stored but excluded from the visual breakdowns; this means the bar total may be slightly less than the displayed total request time.
+
+The **file performance page** shows *averages* of these phases across all requests in a file. The **compare page Timing tab** shows the breakdown for one individual request.
+
 ### How to export a HAR file from your browser
 
 - **Chrome / Edge**: DevTools → Network tab → right-click any request → "Save all as HAR with content"

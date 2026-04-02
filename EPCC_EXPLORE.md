@@ -117,9 +117,17 @@ HarFile (raw JSON)
 
 **`getAllStatusCodes` / `getAllContentTypes`** (`utils/harParser.ts`): Aggregate helpers over `HarAnalysis[]`. Used in `ComparisonTable`.
 
-**`TIMING_PHASES` constant** (`compare/page.tsx`): Module-level array defining the 6 timing phases (dns, connect, ssl, send, wait/TTFB, receive) with display labels and Tailwind color classes. Used by `EntryDetail` to render both the stacked bar and the legend grid. The same color palette is also used in `file/[index]/page.tsx` — extract to a shared location if a third consumer appears.
+**`TIMING_PHASES` constant** (`compare/page.tsx`): Module-level array defining the 6 display phases (dns, connect, ssl, send, wait/TTFB, receive) with display labels and Tailwind color classes. Used by `EntryDetail` to render both the stacked bar and the legend grid. The same color palette is also used in `file/[index]/page.tsx` — extract to a shared location if a third consumer appears.
 
 **`EntryDetail` component** (`compare/page.tsx`): Self-contained expandable request detail panel with Request / Response / Timing tabs. The Timing tab handles HAR `-1` sentinel values (optional phases not applicable for a request) by clamping them to 0.
+
+**HAR timing model** — two concepts exist in the HAR spec; only one is used:
+- `entry.timings` ✅ **used** — per-request phase breakdown (`blocked`, `dns`, `connect`, `ssl`, `send`, `wait`, `receive`). The three mandatory phases are `send`, `wait`, `receive`; the rest are optional and use `-1` to signal "not applicable" (e.g. `dns`/`connect` are `-1` on keep-alive reused connections, `ssl` is `-1` on plain HTTP). `entry.time` is the sum of all phases including `blocked`. The app excludes `blocked` from timing displays, so bar totals may be slightly less than the displayed `entry.time`.
+- `pageTimings` ❌ **not used** — browser-level `onContentLoaded` / `onLoad` milestones stored in `log.pages[].pageTimings`. These are aggregate page events, not per-request costs.
+
+**Timing calculation patterns**:
+- *Per-file avg breakdown* (`file/[index]/page.tsx:99-122`): `avg_phase = sum(entry.timings.phase, treating -1 as 0) / n` across all entries. Visualised as stacked bar + legend grid.
+- *Per-request breakdown* (`compare/page.tsx`, `EntryDetail` Timing tab): `pct = phase_ms / sum(all 6 phases)` for a single entry, with `-1` clamped to 0. Phases < 0.5% are hidden from the bar but shown in the grid.
 
 ---
 
