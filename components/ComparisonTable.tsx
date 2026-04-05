@@ -20,13 +20,13 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
   const allServerIPs = getAllServerIPs(analyses);
   const contentSizeBuckets = getContentSizeBuckets();
 
-  const thClass = 'py-3 px-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider bg-slate-900/60';
-  const tdClass = 'py-2.5 px-4 text-sm text-slate-300 border-t border-slate-700/50 text-right';
-  const labelTdClass = 'py-2.5 px-4 text-sm border-t border-slate-700/50';
-  const sectionRowClass = 'bg-slate-800/80';
+  const thClass = 'py-3 px-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60';
+  const tdClass = 'py-2.5 px-4 text-sm text-slate-700 dark:text-slate-300 border-t border-slate-200 dark:border-slate-700/50 text-right';
+  const labelTdClass = 'py-2.5 px-4 text-sm border-t border-slate-200 dark:border-slate-700/50';
+  const sectionRowClass = 'bg-slate-100 dark:bg-slate-800/80';
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-700">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
       <table className="w-full border-collapse">
         <thead>
           <tr>
@@ -42,8 +42,8 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
         </thead>
         <tbody>
           {/* Total Requests */}
-          <tr className="bg-slate-800/30 hover:bg-slate-800/60 transition-colors">
-            <td className={`${labelTdClass} font-semibold text-slate-200`}>Total Requests</td>
+          <tr className="bg-slate-50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
+            <td className={`${labelTdClass} font-semibold text-slate-800 dark:text-slate-200`}>Total Requests</td>
             {analyses.map((a) => (
               <td key={a.fileIndex} className={tdClass}>
                 <span className="font-mono font-semibold">{a.totalRequests.toLocaleString()}</span>
@@ -52,7 +52,7 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
           </tr>
 
           {/* Unique URLs */}
-          <tr className="hover:bg-slate-800/60 transition-colors">
+          <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
             <td className={labelTdClass}>
               <Link
                 href="/details?type=url"
@@ -70,7 +70,7 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
 
           {/* Status Codes Section */}
           <tr className={sectionRowClass}>
-            <td colSpan={analyses.length + 1} className="py-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-widest border-t border-slate-700">
+            <td colSpan={analyses.length + 1} className="py-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-widest border-t border-slate-200 dark:border-slate-700">
               Status Codes
             </td>
           </tr>
@@ -94,7 +94,7 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
 
           {/* Content Types Section */}
           <tr className={sectionRowClass}>
-            <td colSpan={analyses.length + 1} className="py-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-widest border-t border-slate-700">
+            <td colSpan={analyses.length + 1} className="py-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-widest border-t border-slate-200 dark:border-slate-700">
               Content Types
             </td>
           </tr>
@@ -118,12 +118,12 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
 
           {/* Content Size Section */}
           <tr className={sectionRowClass}>
-            <td colSpan={analyses.length + 1} className="py-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-widest border-t border-slate-700">
+            <td colSpan={analyses.length + 1} className="py-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-widest border-t border-slate-200 dark:border-slate-700">
               Content Size
             </td>
           </tr>
-          <tr className="hover:bg-slate-800/60 transition-colors">
-            <td className={`${labelTdClass} text-slate-300 font-semibold`}>Total Response Size</td>
+          <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+            <td className={`${labelTdClass} text-slate-700 dark:text-slate-300 font-semibold`}>Total Response Size</td>
             {analyses.map((a) => (
               <td key={a.fileIndex} className={tdClass}>
                 <span className="font-mono font-semibold">{formatBytes(a.totalContentSize ?? 0)}</span>
@@ -150,15 +150,15 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
 
           {/* Server IPs Section */}
           <tr className={sectionRowClass}>
-            <td colSpan={analyses.length + 1} className="py-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-widest border-t border-slate-700">
+            <td colSpan={analyses.length + 1} className="py-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-widest border-t border-slate-200 dark:border-slate-700">
               Server IPs
             </td>
           </tr>
           {allServerIPs.length === 0 ? (
             <tr>
-              <td className={`${labelTdClass} text-slate-600 italic text-xs`}>No data — re-upload to populate</td>
+              <td className={`${labelTdClass} text-slate-500 dark:text-slate-600 italic text-xs`}>No data — re-upload to populate</td>
               {analyses.map((a) => (
-                <td key={a.fileIndex} className={tdClass}><span className="text-slate-600">—</span></td>
+                <td key={a.fileIndex} className={tdClass}><span className="text-slate-400 dark:text-slate-600">—</span></td>
               ))}
             </tr>
           ) : (

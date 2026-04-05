@@ -42,8 +42,8 @@ export default function FileUpload({ onFilesSelected, isLoading }: FileUploadPro
       onClick={() => !isLoading && inputRef.current?.click()}
       className={`relative border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-200 ${
         dragging
-          ? 'border-blue-400 bg-blue-950/30 scale-[1.01]'
-          : 'border-slate-600 bg-slate-800/50 hover:border-blue-500 hover:bg-slate-800'
+          ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/30 scale-[1.01]'
+          : 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800'
       } ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
     >
       <input
@@ -61,11 +61,11 @@ export default function FileUpload({ onFilesSelected, isLoading }: FileUploadPro
             d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
         {isLoading ? (
-          <p className="text-slate-300 font-medium">Processing files...</p>
+          <p className="text-slate-600 dark:text-slate-300 font-medium">Processing files...</p>
         ) : (
           <>
-            <p className="text-slate-200 font-semibold text-lg">Drop HAR files here</p>
-            <p className="text-slate-400 text-sm">or click to browse — multiple files supported</p>
+            <p className="text-slate-700 dark:text-slate-200 font-semibold text-lg">Drop HAR files here</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">or click to browse — multiple files supported</p>
           </>
         )}
       </div>
