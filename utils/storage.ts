@@ -1,27 +1,27 @@
+import { get, set, del } from 'idb-keyval';
 import { HarStore } from '@/types/har';
 
 const STORAGE_KEY = 'har_analyzer_data';
 
-export function saveHarStore(store: HarStore): void {
+export async function saveHarStoreAsync(store: HarStore): Promise<void> {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    await set(STORAGE_KEY, store);
   } catch (err) {
-    console.error('Failed to save HAR data to localStorage:', err);
-    throw new Error('Storage quota exceeded. Try uploading smaller files.');
+    console.error('Failed to save HAR data to IndexedDB:', err);
+    throw new Error('Storage error. Could not persist data to database.');
   }
 }
 
-export function loadHarStore(): HarStore | null {
+export async function loadHarStoreAsync(): Promise<HarStore | null> {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (!data) return null;
-    return JSON.parse(data) as HarStore;
+    const data = await get<HarStore>(STORAGE_KEY);
+    return data ?? null;
   } catch (err) {
-    console.error('Failed to load HAR data from localStorage:', err);
+    console.error('Failed to load HAR data from IndexedDB:', err);
     return null;
   }
 }
 
-export function clearHarStore(): void {
-  localStorage.removeItem(STORAGE_KEY);
+export async function clearHarStoreAsync(): Promise<void> {
+  await del(STORAGE_KEY);
 }

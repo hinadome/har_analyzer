@@ -65,7 +65,7 @@ export default function FileUpload({ onFilesSelected, isLoading }: FileUploadPro
         ) : (
           <>
             <p className="text-slate-700 dark:text-slate-200 font-semibold text-lg">Drop HAR files here</p>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">or click to browse — multiple files supported</p>
+            <p className="text-slate-600 dark:text-slate-500 dark:text-slate-400 text-sm">or click to browse — multiple files supported</p>
           </>
         )}
       </div>

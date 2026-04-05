@@ -20,7 +20,7 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
   const allServerIPs = getAllServerIPs(analyses);
   const contentSizeBuckets = getContentSizeBuckets();
 
-  const thClass = 'py-3 px-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60';
+  const thClass = 'py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60';
   const tdClass = 'py-2.5 px-4 text-sm text-slate-700 dark:text-slate-300 border-t border-slate-200 dark:border-slate-700/50 text-right';
   const labelTdClass = 'py-2.5 px-4 text-sm border-t border-slate-200 dark:border-slate-700/50';
   const sectionRowClass = 'bg-slate-100 dark:bg-slate-800/80';
@@ -56,7 +56,7 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
             <td className={labelTdClass}>
               <Link
                 href="/details?type=url"
-                className="text-blue-400 hover:text-blue-300 hover:underline font-medium transition-colors"
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300 hover:underline font-medium transition-colors"
               >
                 Unique URLs
               </Link>
@@ -103,7 +103,7 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
               <td className={labelTdClass}>
                 <Link
                   href={`/details?type=contentType&value=${encodeURIComponent(ct)}`}
-                  className="text-purple-400 hover:text-purple-300 hover:underline font-mono text-xs transition-colors"
+                  className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:text-purple-300 hover:underline font-mono text-xs transition-colors"
                 >
                   {ct}
                 </Link>
@@ -135,7 +135,7 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
               <td className={labelTdClass}>
                 <Link
                   href={`/details?type=contentSizeBucket&value=${encodeURIComponent(bucket)}`}
-                  className="text-orange-400 hover:text-orange-300 hover:underline font-mono text-xs transition-colors"
+                  className="text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:text-orange-300 hover:underline font-mono text-xs transition-colors"
                 >
                   {bucket}
                 </Link>
@@ -156,7 +156,7 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
           </tr>
           {allServerIPs.length === 0 ? (
             <tr>
-              <td className={`${labelTdClass} text-slate-500 dark:text-slate-600 italic text-xs`}>No data — re-upload to populate</td>
+              <td className={`${labelTdClass} text-slate-600 dark:text-slate-500 dark:text-slate-600 italic text-xs`}>No data — re-upload to populate</td>
               {analyses.map((a) => (
                 <td key={a.fileIndex} className={tdClass}><span className="text-slate-400 dark:text-slate-600">—</span></td>
               ))}
@@ -167,7 +167,7 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
                 <td className={labelTdClass}>
                   <Link
                     href={`/details?type=serverIPAddress&value=${encodeURIComponent(ip)}`}
-                    className={`hover:underline font-mono text-xs transition-colors italic ${ip === '(no IP)' ? 'text-slate-400 hover:text-slate-200' : 'text-cyan-400 hover:text-cyan-300 not-italic'}`}
+                    className={`hover:underline font-mono text-xs transition-colors italic ${ip === '(no IP)' ? 'text-slate-400 hover:text-slate-200' : 'text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:text-cyan-300 not-italic'}`}
                   >
                     {ip}
                   </Link>

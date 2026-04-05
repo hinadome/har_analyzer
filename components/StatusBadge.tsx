@@ -3,10 +3,10 @@ interface StatusBadgeProps {
 }
 
 export function statusColorClass(code: number): string {
-  if (code >= 500) return 'text-red-400';
-  if (code >= 400) return 'text-orange-400';
-  if (code >= 300) return 'text-yellow-400';
-  if (code >= 200) return 'text-green-400';
+  if (code >= 500) return 'text-red-600 dark:text-red-400';
+  if (code >= 400) return 'text-orange-600 dark:text-orange-400';
+  if (code >= 300) return 'text-yellow-600 dark:text-yellow-400';
+  if (code >= 200) return 'text-green-600 dark:text-green-400';
   return 'text-slate-400';
 }
 
