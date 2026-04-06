@@ -91,6 +91,7 @@ export interface EntryRecord {
   responseCookies: Array<{ name: string; value: string }>;
   serverIPAddress: string;
   userAgent: string;
+  responseContent?: string;
 }
 
 export interface HarAnalysis {

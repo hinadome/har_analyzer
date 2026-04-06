@@ -81,8 +81,9 @@ export function analyzeHar(har: HarFile, fileName: string, fileIndex: number): H
         .map((h) => parseSetCookieHeader(h.value));
     }
 
+    const responseContent = entry.response?.content?.text;
 
-    entries.push({ url, method, status, statusText, contentType, contentSize, bodySize, time, timings, harFileName: fileName, harFileIndex: fileIndex, requestHeaders, responseHeaders, requestCookies, responseCookies, serverIPAddress, userAgent });
+    entries.push({ url, method, status, statusText, contentType, contentSize, bodySize, time, timings, harFileName: fileName, harFileIndex: fileIndex, requestHeaders, responseHeaders, requestCookies, responseCookies, serverIPAddress, userAgent, responseContent });
 
     totalContentSize += contentSize;
     statusCodeCounts[status] = (statusCodeCounts[status] || 0) + 1;

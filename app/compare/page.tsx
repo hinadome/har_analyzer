@@ -62,7 +62,7 @@ const TIMING_PHASES = [
 ] as const;
 
 function EntryDetail({ entry }: { entry: EntryRecord }) {
-  const [tab, setTab] = useState<'req' | 'res' | 'timing'>('req');
+  const [tab, setTab] = useState<'req' | 'res' | 'timing' | 'content'>('req');
   const tabBase = 'px-3 py-1.5 text-xs font-medium rounded transition-colors';
   const tabActive = `${tabBase} bg-slate-700 text-slate-900 dark:text-slate-100`;
   const tabInactive = `${tabBase} text-slate-600 dark:text-slate-500 hover:text-slate-700 dark:text-slate-300`;
@@ -101,6 +101,9 @@ function EntryDetail({ entry }: { entry: EntryRecord }) {
           </button>
           <button className={tab === 'timing' ? tabActive : tabInactive} onClick={() => setTab('timing')}>
             Timing
+          </button>
+          <button className={tab === 'content' ? tabActive : tabInactive} onClick={() => setTab('content')}>
+            Content
           </button>
         </div>
         {tab === 'req' && (
@@ -168,6 +171,19 @@ function EntryDetail({ entry }: { entry: EntryRecord }) {
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-500 dark:text-slate-600">TTFB = server think time (wait phase). Phases &lt;0.5% hidden from bar.</p>
               </>
+            )}
+          </div>
+        )}
+        {tab === 'content' && (
+          <div className="space-y-3">
+            {!entry.responseContent ? (
+              <p className="text-slate-600 dark:text-slate-500 dark:text-slate-600 text-xs italic">No content available</p>
+            ) : (
+              <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3 max-h-96 overflow-y-auto">
+                <pre className="text-xs font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-all">
+                  {entry.responseContent}
+                </pre>
+              </div>
             )}
           </div>
         )}
