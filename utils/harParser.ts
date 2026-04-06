@@ -60,6 +60,7 @@ export function analyzeHar(har: HarFile, fileName: string, fileIndex: number): H
     const contentSize = entry.response?.content?.size ?? 0;
     const bodySize = entry.response?.bodySize ?? 0;
     const time = entry.time ?? 0;
+    const startedDateTime = entry.startedDateTime ?? '';
     const requestHeaders = entry.request?.headers ?? [];
     const responseHeaders = entry.response?.headers ?? [];
     const serverIPAddress = entry.serverIPAddress ?? '';
@@ -83,7 +84,7 @@ export function analyzeHar(har: HarFile, fileName: string, fileIndex: number): H
 
     const responseContent = entry.response?.content?.text;
 
-    entries.push({ url, method, status, statusText, contentType, contentSize, bodySize, time, timings, harFileName: fileName, harFileIndex: fileIndex, requestHeaders, responseHeaders, requestCookies, responseCookies, serverIPAddress, userAgent, responseContent });
+    entries.push({ url, method, status, statusText, contentType, contentSize, bodySize, time, timings, harFileName: fileName, harFileIndex: fileIndex, requestHeaders, responseHeaders, requestCookies, responseCookies, serverIPAddress, userAgent, responseContent, startedDateTime });
 
     totalContentSize += contentSize;
     statusCodeCounts[status] = (statusCodeCounts[status] || 0) + 1;

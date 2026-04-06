@@ -341,6 +341,9 @@ function PerFileRow({ row }: { row: FileSummaryRow }) {
                     <span className="text-slate-600 dark:text-slate-500 text-xs group-hover:text-slate-700 dark:text-slate-300 transition-colors">
                       {expandedEntryIdx === idx ? '▼' : '▶'}
                     </span>
+                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400 min-w-20" title={entry.startedDateTime}>
+                      {new Date(entry.startedDateTime).toLocaleTimeString()}
+                    </span>
                     <StatusBadge code={entry.status} />
                     <span className="text-xs font-mono text-slate-600 dark:text-slate-500 dark:text-slate-400">{entry.method}</span>
                     <span className="text-xs font-mono text-slate-600 dark:text-slate-500">{formatBytes(entry.contentSize)}</span>

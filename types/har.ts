@@ -92,6 +92,7 @@ export interface EntryRecord {
   serverIPAddress: string;
   userAgent: string;
   responseContent?: string;
+  startedDateTime: string;
 }
 
 export interface HarAnalysis {
