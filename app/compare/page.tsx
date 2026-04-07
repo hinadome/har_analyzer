@@ -10,7 +10,7 @@ import { formatBytes, formatTime } from '@/utils/harParser';
 import StatusBadge from '@/components/StatusBadge';
 import { statusColorClass } from '@/components/StatusBadge';
 
-type SortField = 'harFileName' | 'status' | 'contentType' | 'contentSize' | 'time' | 'serverIPAddress' | 'userAgent';
+type SortField = 'harFileName' | 'status' | 'contentType' | 'startedDateTime' | 'contentSize' | 'time' | 'serverIPAddress' | 'userAgent';
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
   return (
@@ -415,6 +415,7 @@ function ComparePageContent() {
       if (sortField === 'harFileName') cmp = a.harFileName.localeCompare(b.harFileName);
       else if (sortField === 'status') cmp = a.status - b.status;
       else if (sortField === 'contentType') cmp = a.contentType.localeCompare(b.contentType);
+      else if (sortField === 'startedDateTime') cmp = a.startedDateTime.localeCompare(b.startedDateTime);
       else if (sortField === 'contentSize') cmp = a.contentSize - b.contentSize;
       else if (sortField === 'time') cmp = a.time - b.time;
       else if (sortField === 'serverIPAddress') cmp = (a.serverIPAddress ?? '').localeCompare(b.serverIPAddress ?? '');
@@ -595,6 +596,9 @@ function ComparePageContent() {
                   <th className={thClass} onClick={() => toggleSort('harFileName')}>
                     HAR File <SortIcon active={sortField === 'harFileName'} dir={sortDir} />
                   </th>
+                  <th className={thClass} onClick={() => toggleSort('startedDateTime')}>
+                    Start Time <SortIcon active={sortField === 'startedDateTime'} dir={sortDir} />
+                  </th>
                   <th className={thClass} onClick={() => toggleSort('status')}>
                     Status <SortIcon active={sortField === 'status'} dir={sortDir} />
                   </th>
@@ -626,6 +630,9 @@ function ComparePageContent() {
                       >
                         {e.harFileName}
                       </Link>
+                    </td>
+                    <td className="py-2.5 px-4 text-sm font-mono text-slate-700 dark:text-slate-300" title={e.startedDateTime}>
+                      {new Date(e.startedDateTime).toLocaleTimeString()}
                     </td>
                     <td className="py-2.5 px-4 text-sm">
                       <Link href={`/details?type=status&value=${e.status}`}>

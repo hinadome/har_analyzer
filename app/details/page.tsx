@@ -23,7 +23,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
   );
 }
 
-type SortField = 'url' | 'status' | 'contentType' | 'contentSize' | 'time' | 'harFileName';
+type SortField = 'url' | 'status' | 'contentType' | 'startedDateTime' | 'contentSize' | 'time' | 'harFileName';
 
 export default function DetailsPage() {
   return (
@@ -86,6 +86,7 @@ function DetailsPageContent() {
       if (sortField === 'url') cmp = a.url.localeCompare(b.url);
       else if (sortField === 'status') cmp = a.status - b.status;
       else if (sortField === 'contentType') cmp = a.contentType.localeCompare(b.contentType);
+      else if (sortField === 'startedDateTime') cmp = a.startedDateTime.localeCompare(b.startedDateTime);
       else if (sortField === 'contentSize') cmp = a.contentSize - b.contentSize;
       else if (sortField === 'time') cmp = a.time - b.time;
       else if (sortField === 'harFileName') cmp = a.harFileName.localeCompare(b.harFileName);
@@ -221,6 +222,9 @@ function DetailsPageContent() {
                     <th className={thClass} onClick={() => toggleSort('url')}>
                       URL <SortIcon active={sortField === 'url'} dir={sortDir} />
                     </th>
+                    <th className={thClass} onClick={() => toggleSort('startedDateTime')}>
+                      Start Time <SortIcon active={sortField === 'startedDateTime'} dir={sortDir} />
+                    </th>
                     <th className={thClass} onClick={() => toggleSort('status')}>
                       Status <SortIcon active={sortField === 'status'} dir={sortDir} />
                     </th>
@@ -249,6 +253,9 @@ function DetailsPageContent() {
                         >
                           {e.url.length > 80 ? e.url.slice(0, 80) + '…' : e.url}
                         </Link>
+                      </td>
+                      <td className="py-2.5 px-4 text-sm font-mono text-slate-700 dark:text-slate-300" title={e.startedDateTime}>
+                        {new Date(e.startedDateTime).toLocaleTimeString()}
                       </td>
                       <td className="py-2.5 px-4 text-sm">
                         <Link href={`/details?type=status&value=${e.status}`}>
@@ -383,6 +390,7 @@ function UrlGroupTable({ groups, analyses }: { groups: GroupedByUrl[]; analyses:
                             <thead>
                               <tr className="text-xs text-slate-600 dark:text-slate-500 uppercase">
                                 <th className="text-left pb-2 pr-4">HAR File</th>
+                                <th className="text-right pb-2 pr-4">Start Time</th>
                                 <th className="text-right pb-2 pr-4">Status</th>
                                 <th className="text-right pb-2 pr-4">Content Type</th>
                                 <th className="text-right pb-2 pr-4">Size</th>
@@ -393,6 +401,7 @@ function UrlGroupTable({ groups, analyses }: { groups: GroupedByUrl[]; analyses:
                               {g.entries.map((e, i) => (
                                 <tr key={i} className="border-t border-slate-200 dark:border-slate-700/30">
                                   <td className="py-1.5 pr-4 font-mono text-xs text-slate-600 dark:text-slate-500 dark:text-slate-400 truncate max-w-[150px]">{e.harFileName}</td>
+                                  <td className="py-1.5 pr-4 text-right text-xs font-mono text-slate-500" title={e.startedDateTime}>{new Date(e.startedDateTime).toLocaleTimeString()}</td>
                                   <td className="py-1.5 pr-4 text-right">
                                     <Link href={`/details?type=status&value=${e.status}`} onClick={(ev) => ev.stopPropagation()}>
                                       <StatusBadge code={e.status} />

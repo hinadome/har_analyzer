@@ -10,7 +10,7 @@ import { formatBytes, formatTime } from '@/utils/harParser';
 import StatusBadge from '@/components/StatusBadge';
 import { statusColorClass } from '@/components/StatusBadge';
 
-type SortField = 'url' | 'status' | 'contentType' | 'contentSize' | 'time';
+type SortField = 'startedDateTime' | 'url' | 'status' | 'contentType' | 'contentSize' | 'time';
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
   return (
@@ -49,7 +49,8 @@ export default function FileDetailPage() {
   const sorted = useMemo<EntryRecord[]>(() => {
     return [...filtered].sort((a, b) => {
       let cmp = 0;
-      if (sortField === 'url') cmp = a.url.localeCompare(b.url);
+      if (sortField === 'startedDateTime') cmp = a.startedDateTime.localeCompare(b.startedDateTime);
+      else if (sortField === 'url') cmp = a.url.localeCompare(b.url);
       else if (sortField === 'status') cmp = a.status - b.status;
       else if (sortField === 'contentType') cmp = a.contentType.localeCompare(b.contentType);
       else if (sortField === 'contentSize') cmp = a.contentSize - b.contentSize;
@@ -462,6 +463,9 @@ export default function FileDetailPage() {
             <table className="w-full border-collapse">
               <thead>
                 <tr>
+                  <th className={thClass} onClick={() => toggleSort('startedDateTime')}>
+                    Start Time <SortIcon active={sortField === 'startedDateTime'} dir={sortDir} />
+                  </th>
                   <th className={thClass} onClick={() => toggleSort('url')}>
                     URL <SortIcon active={sortField === 'url'} dir={sortDir} />
                   </th>
@@ -482,6 +486,9 @@ export default function FileDetailPage() {
               <tbody>
                 {paginated.map((e, i) => (
                   <tr key={i} className="hover:bg-slate-50 dark:bg-slate-800/50 transition-colors border-t border-slate-200 dark:border-slate-700/50">
+                    <td className="py-2.5 px-4 text-sm font-mono text-slate-700 dark:text-slate-300" title={e.startedDateTime}>
+                      {new Date(e.startedDateTime).toLocaleTimeString()}
+                    </td>
                     <td className="py-2.5 px-4 text-sm max-w-xs">
                       <Link
                         href={`/compare?url=${encodeURIComponent(e.url)}`}
@@ -510,7 +517,7 @@ export default function FileDetailPage() {
                 ))}
                 {paginated.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-slate-600 dark:text-slate-500">No entries found</td>
+                    <td colSpan={6} className="py-12 text-center text-slate-600 dark:text-slate-500">No entries found</td>
                   </tr>
                 )}
               </tbody>
