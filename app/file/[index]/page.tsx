@@ -487,7 +487,7 @@ export default function FileDetailPage() {
                 {paginated.map((e, i) => (
                   <tr key={i} className="hover:bg-slate-50 dark:bg-slate-800/50 transition-colors border-t border-slate-200 dark:border-slate-700/50">
                     <td className="py-2.5 px-4 text-sm font-mono text-slate-700 dark:text-slate-300" title={e.startedDateTime}>
-                      {new Date(e.startedDateTime).toLocaleTimeString()}
+                      {new Date(e.startedDateTime).toLocaleString('en-US', { timeZone: 'UTC' })} GMT
                     </td>
                     <td className="py-2.5 px-4 text-sm max-w-xs">
                       <Link

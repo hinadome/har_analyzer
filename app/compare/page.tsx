@@ -342,7 +342,7 @@ function PerFileRow({ row }: { row: FileSummaryRow }) {
                       {expandedEntryIdx === idx ? '▼' : '▶'}
                     </span>
                     <span className="text-xs font-mono text-slate-500 dark:text-slate-400 min-w-20" title={entry.startedDateTime}>
-                      {new Date(entry.startedDateTime).toLocaleTimeString()}
+                      {new Date(entry.startedDateTime).toLocaleString('en-US', { timeZone: 'UTC' })} GMT
                     </span>
                     <StatusBadge code={entry.status} />
                     <span className="text-xs font-mono text-slate-600 dark:text-slate-500 dark:text-slate-400">{entry.method}</span>
@@ -632,7 +632,7 @@ function ComparePageContent() {
                       </Link>
                     </td>
                     <td className="py-2.5 px-4 text-sm font-mono text-slate-700 dark:text-slate-300" title={e.startedDateTime}>
-                      {new Date(e.startedDateTime).toLocaleTimeString()}
+                      {new Date(e.startedDateTime).toLocaleString('en-US', { timeZone: 'UTC' })} GMT
                     </td>
                     <td className="py-2.5 px-4 text-sm">
                       <Link href={`/details?type=status&value=${e.status}`}>

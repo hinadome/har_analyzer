@@ -255,7 +255,7 @@ function DetailsPageContent() {
                         </Link>
                       </td>
                       <td className="py-2.5 px-4 text-sm font-mono text-slate-700 dark:text-slate-300" title={e.startedDateTime}>
-                        {new Date(e.startedDateTime).toLocaleTimeString()}
+                        {new Date(e.startedDateTime).toLocaleString('en-US', { timeZone: 'UTC' })} GMT
                       </td>
                       <td className="py-2.5 px-4 text-sm">
                         <Link href={`/details?type=status&value=${e.status}`}>
@@ -401,7 +401,7 @@ function UrlGroupTable({ groups, analyses }: { groups: GroupedByUrl[]; analyses:
                               {g.entries.map((e, i) => (
                                 <tr key={i} className="border-t border-slate-200 dark:border-slate-700/30">
                                   <td className="py-1.5 pr-4 font-mono text-xs text-slate-600 dark:text-slate-500 dark:text-slate-400 truncate max-w-[150px]">{e.harFileName}</td>
-                                  <td className="py-1.5 pr-4 text-right text-xs font-mono text-slate-500" title={e.startedDateTime}>{new Date(e.startedDateTime).toLocaleTimeString()}</td>
+                                  <td className="py-1.5 pr-4 text-right text-xs font-mono text-slate-500" title={e.startedDateTime}>{new Date(e.startedDateTime).toLocaleString('en-US', { timeZone: 'UTC' })} GMT</td>
                                   <td className="py-1.5 pr-4 text-right">
                                     <Link href={`/details?type=status&value=${e.status}`} onClick={(ev) => ev.stopPropagation()}>
                                       <StatusBadge code={e.status} />
