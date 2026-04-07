@@ -138,7 +138,7 @@ export default function HomePage() {
             <section>
               <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Comparison Summary</h2>
               <p className="text-sm text-slate-600 dark:text-slate-500 mb-4">
-                Click on a status code, &quot;Unique URLs&quot;, or a content type to view detailed breakdowns.
+                Click on &quot;Unique URLs&quot;, a status code, a content type, a content size, or a server IP to view detailed breakdowns.
               </p>
               <ComparisonTable analyses={analyses} />
             </section>
