@@ -19,7 +19,7 @@ HAR Analyzer is a client-side web application that ingests one or more HAR (HTTP
 
 ### 1.3 Validation and error handling
 - Files that are not valid JSON or do not contain a `log.entries` array are rejected with an inline error message.
-- If `localStorage` quota is exceeded during save, the user sees an error explaining the cause.
+- If `IndexedDB` quota is exceeded during save, the user sees an error explaining the cause.
 - Errors are displayed inline below the upload zone and do not block subsequent uploads.
 
 ### 1.4 File management
@@ -28,7 +28,7 @@ HAR Analyzer is a client-side web application that ingests one or more HAR (HTTP
 - "Clear all" removes all files and clears persisted storage.
 
 ### 1.5 Persistence
-- Parsed analysis data is serialized to `localStorage` under the key `har_analyzer_data`.
+- Parsed analysis data is serialized to `IndexedDB` to circumvent quota limits present in local storage.
 - On page load, any previously stored data is restored automatically.
 
 ---
@@ -51,6 +51,8 @@ HAR Analyzer is a client-side web application that ingests one or more HAR (HTTP
 | Request cookies | `entry.request.cookies` (falls back to parsing `Cookie` header) |
 | Response cookies | `entry.response.cookies` (falls back to parsing `Set-Cookie` headers) |
 | Server IP | `entry.serverIPAddress` |
+| Start Time | `entry.startedDateTime` |
+| Response Content | `entry.response.content.text` |
 | Timing phases | `entry.timings`: `dns`, `connect`, `ssl`, `send`, `wait`, `receive`, `blocked` (optional phases use `-1` when not applicable) |
 
 ### 2.2 HAR timing model
@@ -148,6 +150,7 @@ Columns:
 | URL | Yes | Truncated to 80 chars, full URL on hover; opens in new tab |
 | Status | Yes | Color-coded badge; links to status detail for that code |
 | Content Type | Yes | Links to content type detail |
+| Start Time | Yes | Human-readable UTC date + time |
 | Size | Yes | Human-readable (B / KB / MB) |
 | Time | Yes | Human-readable (ms / s) |
 | HAR File | Yes | Truncated with title tooltip |
@@ -183,7 +186,7 @@ Displays entries grouped by URL rather than a flat list.
 | Avg Time | Average `time` across all entries for this URL |
 
 **Expanded row:**
-Clicking a URL row expands an inline sub-table showing each individual entry with: HAR file, status badge (links to status detail), content type (links to content type detail), size, time.
+Clicking a URL row expands an inline sub-table showing each individual entry with: HAR file, start time, status badge (links to status detail), content type (links to content type detail), size, time.
 
 ### 4.6 Per-file performance dashboard (`/file/[index]`)
 
@@ -211,8 +214,9 @@ Displays all recorded entries for a specific URL grouped by HAR file, enabling c
 | Request | Request headers table + request cookies table |
 | Response | Response headers table + response cookies table |
 | Timing | Per-request timing breakdown: stacked bar (DNS → Connect → SSL → Send → TTFB → Receive) + phase grid showing ms value and % of total for each phase. Calculated as `phase_ms / sum(all phases)` for a single entry, with HAR `-1` values treated as 0. `blocked` is excluded from this display. Phases < 0.5% of total are hidden from the bar but shown in the grid. Shows "No timing data available" when all phases sum to zero (e.g. fully cached responses). |
+| Content | Response text body block |
 
-**All-entries flat table**: Below the per-file sections, a sortable paginated table lists every entry for the URL across all files with columns for HAR file, status, content type, size, and time.
+**All-entries flat table**: Below the per-file sections, a sortable paginated table lists every entry for the URL across all files with columns for HAR file, start time, status, content type, size, and time.
 
 ### 4.8 Sorting
 - Clicking a column header sorts by that field ascending; clicking again toggles descending.
@@ -241,12 +245,12 @@ Browser FileReader API
   buildHarStore()       — HarAnalysis[] → HarStore
        │
        ▼
-  saveHarStore()        — HarStore → localStorage
+  saveHarStore()        — HarStore → IndexedDB
        │
   (on navigation)
        │
        ▼
-  loadHarStore()        — localStorage → HarStore
+  loadHarStore()        — IndexedDB → HarStore
        │
        ▼
   Details page filters  — HarStore.allEntries filtered by type/value
@@ -260,7 +264,7 @@ Browser FileReader API
 |---|---|
 | Privacy | All processing is client-side; no network requests are made with HAR data |
 | Performance | Parsing runs in the main thread via `FileReader`; large files may cause brief UI blocking |
-| Storage limits | `localStorage` is typically capped at 5–10 MB; oversized payloads produce a user-visible error |
+| Storage limits | Used `IndexedDB` to handle massive payloads exceeding local storage caps; remaining caps trigger simple user visible error. |
 | Accessibility | Semantic HTML table elements; keyboard-navigable sort headers and pagination controls |
 | Responsiveness | Horizontally scrollable tables on narrow viewports |
 
@@ -270,6 +274,5 @@ Browser FileReader API
 
 - Server-side storage or sharing of HAR data
 - Waterfall / timeline visualizations
-- Request body or response body inspection
 - HAR file export or diff output
 - Authentication
