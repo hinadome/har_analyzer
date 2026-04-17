@@ -10,7 +10,7 @@ interface ComparisonTableProps {
 }
 
 function Cell({ value }: { value: number | undefined }) {
-  if (!value) return <span className="text-slate-600">—</span>;
+  if (value === undefined || value === null) return <span className="text-slate-600">—</span>;
   return <span className="font-mono">{value.toLocaleString()}</span>;
 }
 
@@ -20,7 +20,7 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
   const allServerIPs = getAllServerIPs(analyses);
   const contentSizeBuckets = getContentSizeBuckets();
 
-  const thClass = 'py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60';
+  const thClass = 'py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60';
   const tdClass = 'py-2.5 px-4 text-sm text-slate-700 dark:text-slate-300 border-t border-slate-200 dark:border-slate-700/50 text-right';
   const labelTdClass = 'py-2.5 px-4 text-sm border-t border-slate-200 dark:border-slate-700/50';
   const sectionRowClass = 'bg-slate-100 dark:bg-slate-800/80';
@@ -156,7 +156,7 @@ export default function ComparisonTable({ analyses }: ComparisonTableProps) {
           </tr>
           {allServerIPs.length === 0 ? (
             <tr>
-              <td className={`${labelTdClass} text-slate-600 dark:text-slate-500 dark:text-slate-600 italic text-xs`}>No data — re-upload to populate</td>
+              <td className={`${labelTdClass} text-slate-600 dark:text-slate-600 italic text-xs`}>No data — re-upload to populate</td>
               {analyses.map((a) => (
                 <td key={a.fileIndex} className={tdClass}><span className="text-slate-400 dark:text-slate-600">—</span></td>
               ))}

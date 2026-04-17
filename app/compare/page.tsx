@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useSyncExternalStore, Suspense, Fragment } from 'react';
+import { useState, useMemo, Suspense, Fragment } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -14,20 +14,20 @@ type SortField = 'harFileName' | 'status' | 'contentType' | 'startedDateTime' | 
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
   return (
-    <span className={`ml-1 ${active ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-500 dark:text-slate-600'}`}>
+    <span className={`ml-1 ${active ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-600'}`}>
       {dir === 'asc' ? '↑' : '↓'}
     </span>
   );
 }
 
 function HeaderTable({ headers }: { headers: HarHeader[] }) {
-  if (!headers.length) return <p className="text-slate-600 dark:text-slate-500 dark:text-slate-600 text-xs italic">None</p>;
+  if (!headers.length) return <p className="text-slate-600 dark:text-slate-600 text-xs italic">None</p>;
   return (
     <table className="w-full text-xs border-collapse">
       <tbody>
         {headers.map((h, i) => (
           <tr key={i} className="border-t border-slate-200 dark:border-slate-700/30">
-            <td className="py-0.5 pr-3 font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 font-mono w-1/3 align-top break-all">{h.name}</td>
+            <td className="py-0.5 pr-3 font-semibold text-slate-600 dark:text-slate-400 font-mono w-1/3 align-top break-all">{h.name}</td>
             <td className="py-0.5 text-slate-700 dark:text-slate-300 font-mono break-all">{h.value}</td>
           </tr>
         ))}
@@ -37,13 +37,13 @@ function HeaderTable({ headers }: { headers: HarHeader[] }) {
 }
 
 function CookieTable({ cookies }: { cookies: Array<{ name: string; value: string }> }) {
-  if (!cookies.length) return <p className="text-slate-600 dark:text-slate-500 dark:text-slate-600 text-xs italic">None</p>;
+  if (!cookies.length) return <p className="text-slate-600 dark:text-slate-600 text-xs italic">None</p>;
   return (
     <table className="w-full text-xs border-collapse">
       <tbody>
         {cookies.map((c, i) => (
           <tr key={i} className="border-t border-slate-200 dark:border-slate-700/30">
-            <td className="py-0.5 pr-3 font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 font-mono w-1/3 align-top break-all">{c.name}</td>
+            <td className="py-0.5 pr-3 font-semibold text-slate-600 dark:text-slate-400 font-mono w-1/3 align-top break-all">{c.name}</td>
             <td className="py-0.5 text-slate-700 dark:text-slate-300 font-mono break-all">{c.value}</td>
           </tr>
         ))}
@@ -82,7 +82,7 @@ function EntryDetail({ entry }: { entry: EntryRecord }) {
     <div className="mt-2 border border-slate-200 dark:border-slate-700/50 rounded-lg overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700/50">
         <StatusBadge code={entry.status} />
-        <span className="text-xs font-mono text-slate-600 dark:text-slate-500 dark:text-slate-400">{entry.method}</span>
+        <span className="text-xs font-mono text-slate-600 dark:text-slate-400">{entry.method}</span>
         <span className="text-xs font-mono text-slate-600 dark:text-slate-500 ml-auto">{formatBytes(entry.contentSize)} · {formatTime(entry.time)}</span>
       </div>
       <div className="px-3 py-2 bg-slate-100 dark:bg-slate-900/40">
@@ -133,7 +133,7 @@ function EntryDetail({ entry }: { entry: EntryRecord }) {
         {tab === 'timing' && (
           <div className="space-y-3">
             {timingTotal <= 0 ? (
-              <p className="text-slate-600 dark:text-slate-500 dark:text-slate-600 text-xs italic">No timing data available</p>
+              <p className="text-slate-600 dark:text-slate-600 text-xs italic">No timing data available</p>
             ) : (
               <>
                 <div className="flex h-4 rounded overflow-hidden gap-px">
@@ -163,13 +163,13 @@ function EntryDetail({ entry }: { entry: EntryRecord }) {
                         <div>
                           <p className="text-xs text-slate-600 dark:text-slate-500">{label}</p>
                           <p className={`text-xs font-mono font-semibold ${color}`}>{formatTime(ms)}</p>
-                          <p className="text-xs text-slate-600 dark:text-slate-500 dark:text-slate-600">{pct.toFixed(1)}%</p>
+                          <p className="text-xs text-slate-600 dark:text-slate-600">{pct.toFixed(1)}%</p>
                         </div>
                       </div>
                     );
                   })}
                 </div>
-                <p className="text-xs text-slate-600 dark:text-slate-500 dark:text-slate-600">TTFB = server think time (wait phase). Phases &lt;0.5% hidden from bar.</p>
+                <p className="text-xs text-slate-600 dark:text-slate-600">TTFB = server think time (wait phase). Phases &lt;0.5% hidden from bar.</p>
               </>
             )}
           </div>
@@ -177,7 +177,7 @@ function EntryDetail({ entry }: { entry: EntryRecord }) {
         {tab === 'content' && (
           <div className="space-y-3">
             {!entry.responseContent ? (
-              <p className="text-slate-600 dark:text-slate-500 dark:text-slate-600 text-xs italic">No content available</p>
+              <p className="text-slate-600 dark:text-slate-600 text-xs italic">No content available</p>
             ) : (
               <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3 max-h-96 overflow-y-auto">
                 <pre className="text-xs font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-all">
@@ -244,7 +244,7 @@ function PerFileRow({ row }: { row: FileSummaryRow }) {
               {hits}
             </button>
           ) : (
-            <span className="text-slate-600 dark:text-slate-500 dark:text-slate-600">—</span>
+            <span className="text-slate-600 dark:text-slate-600">—</span>
           )}
         </td>
         <td className="py-3 px-4 text-sm">
@@ -257,7 +257,7 @@ function PerFileRow({ row }: { row: FileSummaryRow }) {
               ))}
             </div>
           ) : (
-            <span className="text-slate-600 dark:text-slate-500 dark:text-slate-600">—</span>
+            <span className="text-slate-600 dark:text-slate-600">—</span>
           )}
         </td>
         <td className="py-3 px-4 text-sm">
@@ -274,20 +274,20 @@ function PerFileRow({ row }: { row: FileSummaryRow }) {
               ))}
             </div>
           ) : (
-            <span className="text-slate-600 dark:text-slate-500 dark:text-slate-600">—</span>
+            <span className="text-slate-600 dark:text-slate-600">—</span>
           )}
         </td>
         <td className="py-3 px-4 text-sm text-right font-mono text-slate-700 dark:text-slate-300">
-          {hits > 0 ? formatBytes(avgSize) : <span className="text-slate-600 dark:text-slate-500 dark:text-slate-600">—</span>}
+          {hits > 0 ? formatBytes(avgSize) : <span className="text-slate-600 dark:text-slate-600">—</span>}
         </td>
         <td className="py-3 px-4 text-sm text-right font-mono text-slate-700 dark:text-slate-300">
-          {hits > 0 ? formatTime(avgTime) : <span className="text-slate-600 dark:text-slate-500 dark:text-slate-600">—</span>}
+          {hits > 0 ? formatTime(avgTime) : <span className="text-slate-600 dark:text-slate-600">—</span>}
         </td>
-        <td className="py-3 px-4 text-sm text-right font-mono text-slate-600 dark:text-slate-500 dark:text-slate-400 text-xs">
+        <td className="py-3 px-4 text-sm text-right font-mono text-slate-600 dark:text-slate-400 text-xs">
           {hits > 0 ? (
             <span>{formatTime(minTime)} / {formatTime(maxTime)}</span>
           ) : (
-            <span className="text-slate-600 dark:text-slate-500 dark:text-slate-600">—</span>
+            <span className="text-slate-600 dark:text-slate-600">—</span>
           )}
         </td>
         <td className="py-3 px-4 text-sm font-mono text-xs text-slate-700 dark:text-slate-300">
@@ -305,7 +305,7 @@ function PerFileRow({ row }: { row: FileSummaryRow }) {
               ))}
             </div>
           ) : (
-            <span className="text-slate-600 dark:text-slate-500 dark:text-slate-600">—</span>
+            <span className="text-slate-600 dark:text-slate-600">—</span>
           )}
         </td>
         <td className="py-3 px-4 text-sm font-mono text-xs text-slate-700 dark:text-slate-300 max-w-[200px]">
@@ -323,7 +323,7 @@ function PerFileRow({ row }: { row: FileSummaryRow }) {
               ))}
             </div>
           ) : (
-            <span className="text-slate-600 dark:text-slate-500 dark:text-slate-600">—</span>
+            <span className="text-slate-600 dark:text-slate-600">—</span>
           )}
         </td>
       </tr>
@@ -345,7 +345,7 @@ function PerFileRow({ row }: { row: FileSummaryRow }) {
                       {new Date(entry.startedDateTime).toLocaleString('en-US', { timeZone: 'UTC' })} GMT
                     </span>
                     <StatusBadge code={entry.status} />
-                    <span className="text-xs font-mono text-slate-600 dark:text-slate-500 dark:text-slate-400">{entry.method}</span>
+                    <span className="text-xs font-mono text-slate-600 dark:text-slate-400">{entry.method}</span>
                     <span className="text-xs font-mono text-slate-600 dark:text-slate-500">{formatBytes(entry.contentSize)}</span>
                     <span className="text-xs font-mono text-slate-600 dark:text-slate-500">{formatTime(entry.time)}</span>
                     <Link
@@ -369,7 +369,7 @@ function PerFileRow({ row }: { row: FileSummaryRow }) {
 
 export default function ComparePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center text-slate-600 dark:text-slate-500 dark:text-slate-400">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center text-slate-600 dark:text-slate-400">Loading...</div>}>
       <ComparePageContent />
     </Suspense>
   );
@@ -381,7 +381,10 @@ function ComparePageContent() {
 
   const { store, isLoading } = useHarStore();
   const analyses = store?.analyses ?? [];
-  const allEntries = store?.analyses.flatMap((a) => a.entries) ?? [];
+  const allEntries = useMemo(
+    () => store?.analyses.flatMap((a) => a.entries) ?? [],
+    [store]
+  );
 
   const [sortField, setSortField] = useState<SortField>('harFileName');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -433,7 +436,7 @@ function ComparePageContent() {
     setPage(1);
   };
 
-  const thClass = 'py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 cursor-pointer select-none hover:text-slate-800 dark:text-slate-200 transition-colors';
+  const thClass = 'py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 cursor-pointer select-none hover:text-slate-800 dark:text-slate-200 transition-colors';
 
   if (isLoading) {
     return (
@@ -447,7 +450,7 @@ function ComparePageContent() {
     return (
       <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
         <div className="text-center space-y-4">
-          <p className="text-slate-600 dark:text-slate-500 dark:text-slate-400 text-lg">No URL specified.</p>
+          <p className="text-slate-600 dark:text-slate-400 text-lg">No URL specified.</p>
           <Link href="/details?type=url" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300 underline">← Back to All URLs</Link>
         </div>
       </div>
@@ -458,7 +461,7 @@ function ComparePageContent() {
     return (
       <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
         <div className="text-center space-y-4">
-          <p className="text-slate-600 dark:text-slate-500 dark:text-slate-400 text-lg">No HAR data loaded.</p>
+          <p className="text-slate-600 dark:text-slate-400 text-lg">No HAR data loaded.</p>
           <Link href="/" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300 underline">← Back to upload</Link>
         </div>
       </div>
@@ -469,7 +472,7 @@ function ComparePageContent() {
     return (
       <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
         <div className="text-center space-y-4">
-          <p className="text-slate-600 dark:text-slate-500 dark:text-slate-400 text-lg">URL not found in loaded HAR files.</p>
+          <p className="text-slate-600 dark:text-slate-400 text-lg">URL not found in loaded HAR files.</p>
           <Link href="/details?type=url" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300 underline">← Back to All URLs</Link>
         </div>
       </div>
@@ -488,7 +491,7 @@ function ComparePageContent() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
           <Link
             href="/details?type=url"
-            className="text-slate-600 dark:text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 transition-colors flex items-center gap-1.5 text-sm"
+            className="text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 transition-colors flex items-center gap-1.5 text-sm"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -512,7 +515,7 @@ function ComparePageContent() {
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* URL Title */}
         <div>
-          <h2 className="text-lg font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 mb-1">URL Comparison</h2>
+          <h2 className="text-lg font-semibold text-slate-600 dark:text-slate-400 mb-1">URL Comparison</h2>
           <p className="text-slate-900 dark:text-slate-100 font-mono text-sm break-all bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3">
             <a href={url} target="_blank" rel="noopener noreferrer" className="hover:underline text-blue-700 dark:text-blue-300">
               {url}
@@ -562,15 +565,15 @@ function ComparePageContent() {
               <thead>
                 <tr>
                   <th className="py-3 px-4 bg-slate-100 dark:bg-slate-900/60 w-8" />
-                  <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">HAR File</th>
-                  <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Hits</th>
-                  <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Status Codes</th>
-                  <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Content Types</th>
-                  <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Avg Size</th>
-                  <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Avg Time</th>
-                  <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Min / Max Time</th>
-                  <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Server IP</th>
-                  <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">User Agent</th>
+                  <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">HAR File</th>
+                  <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Hits</th>
+                  <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Status Codes</th>
+                  <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Content Types</th>
+                  <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Avg Size</th>
+                  <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Avg Time</th>
+                  <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Min / Max Time</th>
+                  <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Server IP</th>
+                  <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">User Agent</th>
                 </tr>
               </thead>
               <tbody>
@@ -658,7 +661,7 @@ function ComparePageContent() {
                           {e.serverIPAddress}
                         </Link>
                       ) : (
-                        <span className="text-slate-600 dark:text-slate-500 dark:text-slate-600">—</span>
+                        <span className="text-slate-600 dark:text-slate-600">—</span>
                       )}
                     </td>
                     <td className="py-2.5 px-4 text-sm font-mono text-xs max-w-[200px]">
@@ -671,7 +674,7 @@ function ComparePageContent() {
                           {e.userAgent}
                         </Link>
                       ) : (
-                        <span className="text-slate-600 dark:text-slate-500 dark:text-slate-600">—</span>
+                        <span className="text-slate-600 dark:text-slate-600">—</span>
                       )}
                     </td>
                   </tr>
@@ -686,7 +689,7 @@ function ComparePageContent() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-500 dark:text-slate-400 mt-4">
+            <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-400 mt-4">
               <span>
                 Showing {((page - 1) * pageSize + 1).toLocaleString()}–{Math.min(page * pageSize, sortedEntries.length).toLocaleString()} of {sortedEntries.length.toLocaleString()}
               </span>

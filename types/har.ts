@@ -33,21 +33,23 @@ export interface HarResponse {
   bodySize: number;
 }
 
+export interface HarTimings {
+  send: number;
+  wait: number;
+  receive: number;
+  blocked?: number;
+  dns?: number;
+  connect?: number;
+  ssl?: number;
+}
+
 export interface HarEntry {
   startedDateTime: string;
   time: number;
   request: HarRequest;
   response: HarResponse;
   serverIPAddress?: string;
-  timings: {
-    send: number;
-    wait: number;
-    receive: number;
-    blocked?: number;
-    dns?: number;
-    connect?: number;
-    ssl?: number;
-  };
+  timings: HarTimings;
 }
 
 export interface HarLog {
@@ -61,16 +63,6 @@ export interface HarLog {
 
 export interface HarFile {
   log: HarLog;
-}
-
-export interface HarTimings {
-  send: number;
-  wait: number;
-  receive: number;
-  blocked?: number;
-  dns?: number;
-  connect?: number;
-  ssl?: number;
 }
 
 export interface EntryRecord {

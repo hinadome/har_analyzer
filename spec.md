@@ -131,8 +131,8 @@ All detail views live at `/details` and are distinguished by query parameters:
 
 | Parameter | Values |
 |---|---|
-| `type` | `status` \| `url` \| `contentType` \| `contentSizeBucket` |
-| `value` | Status code integer, URL-encoded content type string, or URL-encoded size bucket label (e.g. `1+KB+%E2%80%93+10+KB`); omitted for `type=url` |
+| `type` | `status` \| `url` \| `contentType` \| `contentSizeBucket` \| `serverIPAddress` \| `userAgent` |
+| `value` | Status code integer, URL-encoded content type string, URL-encoded size bucket label, server IP address, or user agent string; omitted for `type=url` |
 
 ### 4.1 Common elements
 - Back link returning to `/`
@@ -148,10 +148,10 @@ Columns:
 | Column | Sortable | Notes |
 |---|---|---|
 | URL | Yes | Truncated to 80 chars, full URL on hover; opens in new tab |
+| Start Time | Yes | Human-readable UTC date + time |
 | Status | Yes | Color-coded badge; links to status detail for that code |
 | Content Type | Yes | Links to content type detail |
-| Start Time | Yes | Human-readable UTC date + time |
-| Size | Yes | Human-readable (B / KB / MB) |
+| Size | Yes | Human-readable (B / KB / MB); shows `N/A` for unknown sizes (HAR sentinel) |
 | Time | Yes | Human-readable (ms / s) |
 | HAR File | Yes | Truncated with title tooltip |
 
@@ -187,6 +187,12 @@ Displays entries grouped by URL rather than a flat list.
 
 **Expanded row:**
 Clicking a URL row expands an inline sub-table showing each individual entry with: HAR file, start time, status badge (links to status detail), content type (links to content type detail), size, time.
+
+### 4.5a Server IP detail (`type=serverIPAddress`)
+Same table structure as status code detail, filtered to entries whose `serverIPAddress` matches `value`. The special value `(no IP)` matches entries with no recorded server IP.
+
+### 4.5b User agent detail (`type=userAgent`)
+Same table structure as status code detail, filtered to entries whose `User-Agent` request header matches `value` exactly.
 
 ### 4.6 Per-file performance dashboard (`/file/[index]`)
 
@@ -263,7 +269,7 @@ Browser FileReader API
 | Concern | Approach |
 |---|---|
 | Privacy | All processing is client-side; no network requests are made with HAR data |
-| Performance | Parsing runs in the main thread via `FileReader`; large files may cause brief UI blocking |
+| Performance | Parsing runs in the main thread via `FileReader`; large files may cause brief UI blocking. Derived entry arrays are memoized to avoid recomputation on unrelated re-renders. |
 | Storage limits | Used `IndexedDB` to handle massive payloads exceeding local storage caps; remaining caps trigger simple user visible error. |
 | Accessibility | Semantic HTML table elements; keyboard-navigable sort headers and pagination controls |
 | Responsiveness | Horizontally scrollable tables on narrow viewports |

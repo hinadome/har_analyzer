@@ -17,7 +17,7 @@ interface GroupedByUrl {
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
   return (
-    <span className={`ml-1 ${active ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-500 dark:text-slate-600'}`}>
+    <span className={`ml-1 ${active ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-600'}`}>
       {dir === 'asc' ? '↑' : '↓'}
     </span>
   );
@@ -27,7 +27,7 @@ type SortField = 'url' | 'status' | 'contentType' | 'startedDateTime' | 'content
 
 export default function DetailsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center text-slate-600 dark:text-slate-500 dark:text-slate-400">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center text-slate-600 dark:text-slate-400">Loading...</div>}>
       <DetailsPageContent />
     </Suspense>
   );
@@ -40,7 +40,10 @@ function DetailsPageContent() {
 
   const { store, isLoading } = useHarStore();
   const analyses = store?.analyses ?? [];
-  const allEntries = store?.analyses.flatMap((a) => a.entries) ?? [];
+  const allEntries = useMemo(
+    () => store?.analyses.flatMap((a) => a.entries) ?? [],
+    [store]
+  );
 
   const [sortField, setSortField] = useState<SortField>('url');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -73,7 +76,8 @@ function DetailsPageContent() {
         (e) =>
           e.url.toLowerCase().includes(q) ||
           e.contentType.toLowerCase().includes(q) ||
-          String(e.status).includes(q)
+          String(e.status).includes(q) ||
+          e.harFileName.toLowerCase().includes(q)
       );
     }
 
@@ -128,7 +132,7 @@ function DetailsPageContent() {
     setPage(1);
   };
 
-  const thClass = 'py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 cursor-pointer select-none hover:text-slate-800 dark:text-slate-200 transition-colors';
+  const thClass = 'py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 cursor-pointer select-none hover:text-slate-800 dark:text-slate-200 transition-colors';
 
   const title =
     type === 'status'
@@ -155,7 +159,7 @@ function DetailsPageContent() {
     return (
       <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
         <div className="text-center space-y-4">
-          <p className="text-slate-600 dark:text-slate-500 dark:text-slate-400 text-lg">No HAR data loaded.</p>
+          <p className="text-slate-600 dark:text-slate-400 text-lg">No HAR data loaded.</p>
           <Link href="/" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300 underline">
             ← Back to upload
           </Link>
@@ -170,7 +174,7 @@ function DetailsPageContent() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
           <Link
             href="/"
-            className="text-slate-600 dark:text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 transition-colors flex items-center gap-1.5 text-sm"
+            className="text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 transition-colors flex items-center gap-1.5 text-sm"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -198,7 +202,7 @@ function DetailsPageContent() {
             <p className="text-slate-600 dark:text-slate-500 text-sm mt-1">
               {type === 'url' ? groupedByUrl.length.toLocaleString() + ' unique URLs' : filtered.length.toLocaleString() + ' entries'} across {analyses.length} file{analyses.length !== 1 ? 's' : ''}
               {type === 'userAgent' && value && (
-                <span className="block text-xs text-slate-600 dark:text-slate-500 dark:text-slate-600 font-mono mt-1 break-all max-w-2xl">{value}</span>
+                <span className="block text-xs text-slate-600 dark:text-slate-600 font-mono mt-1 break-all max-w-2xl">{value}</span>
               )}
             </p>
           </div>
@@ -276,7 +280,7 @@ function DetailsPageContent() {
                       <td className="py-2.5 px-4 text-sm font-mono text-slate-700 dark:text-slate-300 text-right">
                         {formatTime(e.time)}
                       </td>
-                      <td className="py-2.5 px-4 text-sm text-slate-600 dark:text-slate-500 dark:text-slate-400 font-mono text-xs max-w-[160px] truncate" title={e.harFileName}>
+                      <td className="py-2.5 px-4 text-sm text-slate-600 dark:text-slate-400 font-mono text-xs max-w-[160px] truncate" title={e.harFileName}>
                         {e.harFileName}
                       </td>
                     </tr>
@@ -291,7 +295,7 @@ function DetailsPageContent() {
             </div>
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-500 dark:text-slate-400">
+              <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-400">
                 <span>
                   Showing {((page - 1) * pageSize + 1).toLocaleString()}–{Math.min(page * pageSize, sorted.length).toLocaleString()} of {sorted.length.toLocaleString()}
                 </span>
@@ -336,16 +340,16 @@ function UrlGroupTable({ groups, analyses }: { groups: GroupedByUrl[]; analyses:
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 w-10" />
-              <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">URL</th>
-              <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Total Hits</th>
+              <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 w-10" />
+              <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">URL</th>
+              <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Total Hits</th>
               {analyses.map((a) => (
-                <th key={a.fileIndex} className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 min-w-[120px]">
+                <th key={a.fileIndex} className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 min-w-[120px]">
                   <span className="block truncate max-w-[130px] ml-auto" title={a.fileName}>{a.fileName}</span>
                 </th>
               ))}
-              <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Avg Size</th>
-              <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Avg Time</th>
+              <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Avg Size</th>
+              <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60">Avg Time</th>
             </tr>
           </thead>
           <tbody>
@@ -375,7 +379,7 @@ function UrlGroupTable({ groups, analyses }: { groups: GroupedByUrl[]; analyses:
                     <td className="py-2.5 px-4 text-sm text-right font-mono text-slate-700 dark:text-slate-300">{g.entries.length}</td>
                     {analyses.map((a) => (
                       <td key={a.fileIndex} className="py-2.5 px-4 text-sm text-right font-mono text-slate-700 dark:text-slate-300">
-                        {g.byFile[a.fileIndex]?.length ?? <span className="text-slate-600 dark:text-slate-500 dark:text-slate-600">—</span>}
+                        {g.byFile[a.fileIndex]?.length ?? <span className="text-slate-600 dark:text-slate-600">—</span>}
                       </td>
                     ))}
                     <td className="py-2.5 px-4 text-sm text-right font-mono text-slate-700 dark:text-slate-300">{formatBytes(avgSize)}</td>
@@ -385,7 +389,7 @@ function UrlGroupTable({ groups, analyses }: { groups: GroupedByUrl[]; analyses:
                     <tr key={`${g.url}-expanded`} className="border-t border-slate-200 dark:border-slate-700/50">
                       <td colSpan={5 + analyses.length} className="p-0">
                         <div className="bg-slate-100 dark:bg-slate-900/60 border-l-2 border-blue-500/40 px-6 py-4">
-                          <p className="text-xs text-slate-600 dark:text-slate-500 dark:text-slate-400 font-mono break-all mb-3">{g.url}</p>
+                          <p className="text-xs text-slate-600 dark:text-slate-400 font-mono break-all mb-3">{g.url}</p>
                           <table className="w-full text-sm border-collapse">
                             <thead>
                               <tr className="text-xs text-slate-600 dark:text-slate-500 uppercase">
@@ -400,7 +404,7 @@ function UrlGroupTable({ groups, analyses }: { groups: GroupedByUrl[]; analyses:
                             <tbody>
                               {g.entries.map((e, i) => (
                                 <tr key={i} className="border-t border-slate-200 dark:border-slate-700/30">
-                                  <td className="py-1.5 pr-4 font-mono text-xs text-slate-600 dark:text-slate-500 dark:text-slate-400 truncate max-w-[150px]">{e.harFileName}</td>
+                                  <td className="py-1.5 pr-4 font-mono text-xs text-slate-600 dark:text-slate-400 truncate max-w-[150px]">{e.harFileName}</td>
                                   <td className="py-1.5 pr-4 text-right text-xs font-mono text-slate-500" title={e.startedDateTime}>{new Date(e.startedDateTime).toLocaleString('en-US', { timeZone: 'UTC' })} GMT</td>
                                   <td className="py-1.5 pr-4 text-right">
                                     <Link href={`/details?type=status&value=${e.status}`} onClick={(ev) => ev.stopPropagation()}>

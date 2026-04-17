@@ -32,6 +32,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `npm run build` | Build for production |
 | `npm run start` | Start production server |
 | `npm run lint` | Run ESLint |
+| `npx vitest run` | Run the test suite once |
 
 ## Usage
 
@@ -97,3 +98,4 @@ har_analyzer/
 - **TypeScript** (strict mode)
 - **Tailwind CSS v4** (dark theme)
 - **React 19**
+- **Vitest** + **@testing-library/react** (unit/property-based tests)
