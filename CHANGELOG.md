@@ -16,7 +16,18 @@
   - Binary/missing content fallback showing size comparison instead of diff
   - Large payload truncation at 50,000 characters with per-entry "Show full content" toggle
   - Pre-populated via `?url=` query parameter when navigating from the compare page
-- **"Content Diff" link on compare page** — button added next to the URL title on `/compare`, navigating to `/content-diff?url={encoded}` for the current URL
+- **Header Diff page (`/header-diff`)** — new page for comparing request/response headers and cookies between any two HAR entries for the same URL. Features:
+  - Same URL search, grouped dropdown, and "Ignore query string" toggle as the Content Diff page
+  - Entry table showing HAR file, full URL (links to `/compare`), status, req/res header counts, req/res cookie counts, and UTC timestamp
+  - Baseline / Compare radio selection for any two entries
+  - Four diff sections: Request Headers, Response Headers, Request Cookies, Response Cookies
+  - Color-coded key-value diff table: red `−` for removed, green `+` for added, amber `~` for changed (old value struck through, new value highlighted), no highlight for equal
+  - Header names compared case-insensitively per HTTP spec; values compared case-sensitively
+  - Multi-value headers matched positionally per name
+  - "Identical" banner when all four sections match exactly
+  - Metadata bar showing both selected entries (file, URL, status, timestamp) before the diff
+  - Pre-populated via `?url=` query parameter
+- **"Header Diff" link on compare page** — button added next to "Content Diff" in the URL title area, navigating to `/header-diff?url={encoded}`
 - **Sample HAR files** (`sample-hars/`) — three sample files for testing: `sample-a.har` (baseline), `sample-b.har` (modified responses for diffing), `sample-c.har` (query string variants and status changes)
 
 ### Fixed

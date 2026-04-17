@@ -266,12 +266,53 @@ Each request to the same URL within a single HAR file appears as a separate sele
 | Intra-line highlighting | Changed lines show character/word-level spans highlighting the exact text that was added or removed |
 | Binary fallback | When either entry is binary or has no captured body: size comparison shown, no diff rendered |
 
-### 4.9 Sorting
+### 4.9 Header Diff page (`/header-diff?url={encoded}`)
+
+Enables comparison of request/response headers and cookies between any two entries for the same URL (or same base path when query strings are ignored). Follows the same URL search and entry selection pattern as the Content Diff page (§4.8).
+
+**URL search and entry selection:** identical to §4.8 — free-text input, grouped dropdown with base path headers and full URL sub-items, "Ignore query string" toggle, pre-population from `?url=` query parameter.
+
+**Entry table columns:**
+
+| Column | Notes |
+|---|---|
+| Baseline | Radio button |
+| Compare | Radio button |
+| HAR File | File name (font-mono, truncated) |
+| URL | Full URL; links to `/compare?url={encoded}` |
+| Status | Color-coded status badge |
+| Req/Res Headers | Count of request headers / response headers |
+| Req/Res Cookies | Count of request cookies / response cookies |
+| Timestamp (UTC) | `startedDateTime` formatted as UTC |
+
+**Diff panel** (shown when two different entries are selected):
+
+| Element | Behaviour |
+|---|---|
+| Metadata bar | Shows both selected entries (file name, URL, status, timestamp) side by side above the diff |
+| Identical banner | Green banner when all four sections match exactly |
+| Four diff sections | Request Headers, Response Headers, Request Cookies, Response Cookies |
+
+**Key-value diff table** (one per section):
+
+| Row style | Meaning |
+|---|---|
+| Red background, `−` prefix | Header/cookie present only in baseline (removed) |
+| Green background, `+` prefix | Header/cookie present only in compare (added) |
+| Amber background, `~` prefix | Present in both but value changed; baseline value shown with strikethrough, compare value in green |
+| No highlight | Equal in both entries |
+
+**Diffing rules:**
+- Header names are compared case-insensitively (per HTTP spec); values are compared case-sensitively.
+- When a header name appears multiple times on one side, occurrences are matched positionally against the same-named occurrences on the other side.
+- Extra occurrences on either side are shown as added or removed.
+
+### 4.10 Sorting
 - Clicking a column header sorts by that field ascending; clicking again toggles descending.
 - Active sort column is highlighted with a directional arrow indicator.
 - Sort state resets to the default when the search query changes.
 
-### 4.10 Pagination
+### 4.11 Pagination
 - Flat entry tables (status and content type views) are paginated at 50 rows per page.
 - Previous / Next controls and a "current / total" indicator are shown when more than one page exists.
 - Page resets to 1 when the search query changes.
@@ -302,9 +343,12 @@ Browser FileReader API
        │
        ├── Details page filters  — HarStore.allEntries filtered by type/value
        │
-       └── Content Diff page     — two EntryRecord bodies → truncateBody()
-                                    → prettifyIfJson() → computeDiff()
-                                    → UnifiedDiffView / SideBySideDiffView
+       ├── Content Diff page     — two EntryRecord bodies → truncateBody()
+       │                            → prettifyIfJson() → computeDiff()
+       │                            → UnifiedDiffView / SideBySideDiffView
+       │
+       └── Header Diff page      — two EntryRecord header/cookie arrays
+                                    → diffKvPairs() × 4 → HeaderDiffView
 ```
 
 ---
