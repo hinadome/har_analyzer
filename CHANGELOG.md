@@ -16,6 +16,7 @@
   - Binary/missing content fallback showing size comparison instead of diff
   - Large payload truncation at 50,000 characters with per-entry "Show full content" toggle
   - Pre-populated via `?url=` query parameter when navigating from the compare page
+  - Baseline / Compare metadata cards shown above the diff panel (HAR file name, full URL, status, UTC timestamp)
 - **Header Diff page (`/header-diff`)** — new page for comparing request/response headers and cookies between any two HAR entries for the same URL. Features:
   - Same URL search, grouped dropdown, and "Ignore query string" toggle as the Content Diff page
   - Entry table showing HAR file, full URL (links to `/compare`), status, req/res header counts, req/res cookie counts, and UTC timestamp

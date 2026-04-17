@@ -257,6 +257,7 @@ Each request to the same URL within a single HAR file appears as a separate sele
 
 | Element | Behaviour |
 |---|---|
+| Metadata bar | Shows both selected entries (file name, URL, status, timestamp) side by side above the diff |
 | Mode toggle | Switch between Unified and Side-by-Side diff layouts; defaults to Unified |
 | Identical banner | Green banner shown when both response bodies match exactly |
 | JSON prettified label | Shown when `application/json` or `+json` content was auto-formatted before diffing |
