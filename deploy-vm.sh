@@ -32,10 +32,13 @@ if [[ "${1:-}" == "--update" ]]; then
   git pull origin main
 
   info "Installing dependencies..."
-  npm ci --omit=dev
+  npm ci
 
   info "Building application..."
   npm run build
+
+  info "Pruning dev dependencies..."
+  npm prune --omit=dev
 
   info "Restarting service..."
   pm2 restart "$APP_NAME" || pm2 start .next/standalone/server.js \
@@ -87,11 +90,15 @@ fi
 
 # 5. Install dependencies
 info "Installing dependencies..."
-npm ci --omit=dev
+npm ci
 
 # 6. Build
 info "Building application (this may take a minute)..."
 npm run build
+
+# 6a. Prune dev dependencies after build
+info "Pruning dev dependencies..."
+npm prune --omit=dev
 
 # 7. Start with PM2
 info "Starting application with PM2..."
@@ -104,7 +111,13 @@ pm2 start .next/standalone/server.js \
 # 8. Persist PM2 across reboots
 info "Configuring PM2 to start on boot..."
 pm2 save
-pm2 startup | grep "sudo" | bash || warn "Could not auto-configure startup. Run 'pm2 startup' manually."
+# Generate and apply the startup command for the current user
+PM2_STARTUP_CMD=$(pm2 startup systemd -u "$USER" --hp "$HOME" 2>/dev/null | grep "sudo" | head -1)
+if [[ -n "$PM2_STARTUP_CMD" ]]; then
+  eval "$PM2_STARTUP_CMD"
+else
+  warn "Could not auto-configure startup. Run 'pm2 startup' manually and follow the instructions."
+fi
 
 # 9. Health check
 info "Waiting for app to start..."

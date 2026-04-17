@@ -54,6 +54,7 @@ docker compose up -d
 
 ### Prerequisites
 - Ubuntu 22.04+ or Debian 11+ VM
+- Node.js 20 (installed automatically by the script)
 - User with `sudo` privileges
 - Outbound internet access (to install Node.js and clone the repo)
 
@@ -69,9 +70,9 @@ The script:
 1. Installs Node.js 20 via NodeSource
 2. Installs PM2 globally
 3. Clones `https://github.com/hinadome/har_analyzer.git` to `~/har_analyzer`
-4. Runs `npm ci && npm run build`
+4. Runs `npm ci && npm run build` (full install including devDependencies, then prunes after build)
 5. Starts the app under PM2 on port 3000
-6. Configures PM2 to restart on system reboot
+6. Configures PM2 to restart on system reboot via `systemd`
 
 ### Updating
 

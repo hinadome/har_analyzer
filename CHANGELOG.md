@@ -1,6 +1,23 @@
 # Changelog
 
-## [04/06/2026:bug]
+## [Unreleased]
+
+### Added
+
+- **Content Diff page (`/content-diff`)** — new page for comparing response body content across HAR entries for the same URL. Features:
+  - URL search with live filtering and grouped dropdown (base path as header, full URLs with query strings as sub-items)
+  - "Ignore query string" toggle — groups entries by base path so requests to the same endpoint with different query params can be compared side by side
+  - Entry table showing HAR file name, full URL (clickable — links to `/compare` page), status, content type, size, and UTC timestamp per entry
+  - Baseline / Compare radio selection for any two entries
+  - Unified and side-by-side diff modes with line numbers
+  - Intra-line character/word-level highlighting on changed lines
+  - JSON auto-prettification (2-space indent) before diffing for `application/json` and `+json` content types
+  - "Identical" banner when both response bodies match exactly
+  - Binary/missing content fallback showing size comparison instead of diff
+  - Large payload truncation at 50,000 characters with per-entry "Show full content" toggle
+  - Pre-populated via `?url=` query parameter when navigating from the compare page
+- **"Content Diff" link on compare page** — button added next to the URL title on `/compare`, navigating to `/content-diff?url={encoded}` for the current URL
+- **Sample HAR files** (`sample-hars/`) — three sample files for testing: `sample-a.har` (baseline), `sample-b.har` (modified responses for diffing), `sample-c.har` (query string variants and status changes)
 
 ### Fixed
 
@@ -20,3 +37,4 @@
 - Added Vitest + `@testing-library/react` test suite (`__tests__/`)
 - Bug condition exploration tests confirming all three behavioural bugs were present before fixes
 - Preservation property tests locking in correct baseline behaviour as a regression guard
+- Property-based tests (via `fast-check`) for `contentDiff.ts` utilities covering identity detection, diff line classification, line number assignment, intra-line span reconstruction, JSON prettification round-trip, and truncation correctness

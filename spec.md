@@ -224,12 +224,54 @@ Displays all recorded entries for a specific URL grouped by HAR file, enabling c
 
 **All-entries flat table**: Below the per-file sections, a sortable paginated table lists every entry for the URL across all files with columns for HAR file, start time, status, content type, size, and time.
 
-### 4.8 Sorting
+### 4.8 Content Diff page (`/content-diff?url={encoded}`)
+
+Enables response body comparison between any two entries for the same URL (or same base path when query strings are ignored).
+
+**URL search:**
+- Free-text input with live filtering against all unique URLs in the loaded HAR data (case-insensitive substring match).
+- Dropdown groups results by base path (scheme + host + pathname). When "Ignore query string" is on, each group header shows the base path and lists all distinct full URLs beneath it as sub-items. Selecting the group header loads all entries sharing that base path; selecting a specific full URL loads only exact-match entries.
+- Pre-populated from the `?url=` query parameter when navigating from the compare page.
+
+**Ignore query string toggle:**
+- When enabled, entry matching uses the base path only (strips `?` and `#`), so requests to the same endpoint with different query params are grouped together.
+- The selected URL banner displays a "query strings ignored" label when the toggle is on.
+
+**Entry table columns:**
+
+| Column | Notes |
+|---|---|
+| Baseline | Radio button to designate this entry as the baseline |
+| Compare | Radio button to designate this entry as the comparison target |
+| HAR File | File name (font-mono, truncated) |
+| URL | Full URL including query string; links to `/compare?url={encoded}` |
+| Status | Color-coded status badge |
+| Content Type | Normalized MIME type |
+| Size | Human-readable response body size |
+| Timestamp (UTC) | `startedDateTime` formatted as UTC |
+| — | "binary" badge for binary or uncaptured entries |
+
+Each request to the same URL within a single HAR file appears as a separate selectable row.
+
+**Diff panel** (shown when two different entries are selected):
+
+| Element | Behaviour |
+|---|---|
+| Mode toggle | Switch between Unified and Side-by-Side diff layouts; defaults to Unified |
+| Identical banner | Green banner shown when both response bodies match exactly |
+| JSON prettified label | Shown when `application/json` or `+json` content was auto-formatted before diffing |
+| Truncation notice | Amber notice per entry when body exceeds 50,000 characters; "Show full content" / "Show less" toggle per entry |
+| Unified diff | Single scrollable panel; removed lines in red with `−` prefix, added lines in green with `+` prefix; line numbers in gutter |
+| Side-by-side diff | Two panels (Baseline left, Compare right); placeholder rows maintain alignment; line numbers in each gutter |
+| Intra-line highlighting | Changed lines show character/word-level spans highlighting the exact text that was added or removed |
+| Binary fallback | When either entry is binary or has no captured body: size comparison shown, no diff rendered |
+
+### 4.9 Sorting
 - Clicking a column header sorts by that field ascending; clicking again toggles descending.
 - Active sort column is highlighted with a directional arrow indicator.
 - Sort state resets to the default when the search query changes.
 
-### 4.9 Pagination
+### 4.10 Pagination
 - Flat entry tables (status and content type views) are paginated at 50 rows per page.
 - Previous / Next controls and a "current / total" indicator are shown when more than one page exists.
 - Page resets to 1 when the search query changes.
@@ -258,8 +300,11 @@ Browser FileReader API
        ▼
   loadHarStore()        — IndexedDB → HarStore
        │
-       ▼
-  Details page filters  — HarStore.allEntries filtered by type/value
+       ├── Details page filters  — HarStore.allEntries filtered by type/value
+       │
+       └── Content Diff page     — two EntryRecord bodies → truncateBody()
+                                    → prettifyIfJson() → computeDiff()
+                                    → UnifiedDiffView / SideBySideDiffView
 ```
 
 ---
