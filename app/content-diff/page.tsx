@@ -21,7 +21,6 @@ import type { EntryRecord } from '@/types/har';
 import type { UrlGroup } from '@/utils/contentDiff';
 import UnifiedDiffView from '@/components/UnifiedDiffView';
 import SideBySideDiffView from '@/components/SideBySideDiffView';
-import type { EntryRecord } from '@/types/har';
 
 // ---------------------------------------------------------------------------
 // Entry row
