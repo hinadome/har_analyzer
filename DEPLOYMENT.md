@@ -3,6 +3,7 @@
 ## Option A: Docker / Docker Compose
 
 ### Prerequisites
+
 - Docker 24+ and Docker Compose v2
 
 ### Quick start
@@ -53,6 +54,7 @@ docker compose up -d
 ## Option B: VM (Ubuntu / Debian) with PM2
 
 ### Prerequisites
+
 - Ubuntu 22.04+ or Debian 11+ VM
 - Node.js 20 (installed automatically by the script)
 - User with `sudo` privileges
@@ -67,12 +69,14 @@ bash deploy-vm.sh
 ```
 
 The script:
-1. Installs Node.js 20 via NodeSource
+
+1. Installs Node.js 20 via NodeSource (Next.js 16 requires ≥ 20.9)
 2. Installs PM2 globally
 3. Clones `https://github.com/hinadome/har_analyzer.git` to `~/har_analyzer`
-4. Runs `npm ci && npm run build` (full install including devDependencies, then prunes after build)
-5. Starts the app under PM2 on port 3000
-6. Configures PM2 to restart on system reboot via `systemd`
+4. Runs `npm ci && npm run build`, then prunes devDependencies
+5. Copies `public/` and `.next/static/` into `.next/standalone/` (required by Next.js standalone output — these directories are not bundled into `server.js` automatically)
+6. Starts the app under PM2 with entry point `.next/standalone/server.js` and `NODE_ENV=production`, `PORT=3000`, `HOSTNAME=0.0.0.0` exported into the process environment
+7. Configures PM2 to restart on system reboot via `systemd`
 
 ### Updating
 
@@ -84,13 +88,13 @@ Pulls latest code, rebuilds, and restarts the PM2 process.
 
 ### Useful PM2 commands
 
-| Command | Description |
-|---------|-------------|
-| `pm2 status` | Show all processes |
-| `pm2 logs har-analyzer` | Stream logs |
+| Command                    | Description         |
+| -------------------------- | ------------------- |
+| `pm2 status`               | Show all processes  |
+| `pm2 logs har-analyzer`    | Stream logs         |
 | `pm2 restart har-analyzer` | Restart the process |
-| `pm2 stop har-analyzer` | Stop the process |
-| `pm2 delete har-analyzer` | Remove from PM2 |
+| `pm2 stop har-analyzer`    | Stop the process    |
+| `pm2 delete har-analyzer`  | Remove from PM2     |
 
 ### Accessing the app
 
@@ -126,10 +130,10 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## Environment variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3000` | HTTP port the server listens on |
-| `HOSTNAME` | `0.0.0.0` | Bind address |
-| `NODE_ENV` | `production` | Runtime environment |
+| Variable   | Default      | Description                     |
+| ---------- | ------------ | ------------------------------- |
+| `PORT`     | `3000`       | HTTP port the server listens on |
+| `HOSTNAME` | `0.0.0.0`    | Bind address                    |
+| `NODE_ENV` | `production` | Runtime environment             |
 
 Set custom values in `docker-compose.yml` (Docker) or via PM2 ecosystem file (VM).

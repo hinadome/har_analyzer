@@ -40,11 +40,16 @@ if [[ "${1:-}" == "--update" ]]; then
   info "Pruning dev dependencies..."
   npm prune --omit=dev
 
+  # Next.js standalone output does not bundle public/ or .next/static/
+  # automatically; copy them into the standalone tree so server.js can serve them.
+  info "Copying static assets into standalone bundle..."
+  cp -r public .next/standalone/
+  cp -r .next/static .next/standalone/.next/
+
   info "Restarting service..."
-  pm2 restart "$APP_NAME" || pm2 start .next/standalone/server.js \
-    --name "$APP_NAME" \
-    --env production \
-    -- --port "$PORT"
+  export NODE_ENV=production PORT="$PORT" HOSTNAME=0.0.0.0
+  pm2 restart "$APP_NAME" --update-env || pm2 start .next/standalone/server.js \
+    --name "$APP_NAME"
 
   pm2 save
   info "Update complete. App running at http://localhost:${PORT}"
@@ -100,13 +105,21 @@ npm run build
 info "Pruning dev dependencies..."
 npm prune --omit=dev
 
-# 7. Start with PM2
+# 6b. Copy static assets into the standalone bundle.
+# Next.js' standalone output ships a minimal server.js + traced node_modules
+# but intentionally does not copy public/ or .next/static/ — they are expected
+# to be served by a CDN, or copied in manually (per the Next.js docs).
+info "Copying static assets into standalone bundle..."
+cp -r public .next/standalone/
+cp -r .next/static .next/standalone/.next/
+
+# 7. Start with PM2.
+# server.js reads PORT and HOSTNAME from the environment, not argv, so we
+# export them before invoking pm2 rather than passing flags after `--`.
 info "Starting application with PM2..."
 pm2 delete "$APP_NAME" 2>/dev/null || true
-pm2 start .next/standalone/server.js \
-  --name "$APP_NAME" \
-  --env production \
-  -- --port "$PORT"
+export NODE_ENV=production PORT="$PORT" HOSTNAME=0.0.0.0
+pm2 start .next/standalone/server.js --name "$APP_NAME"
 
 # 8. Persist PM2 across reboots
 info "Configuring PM2 to start on boot..."

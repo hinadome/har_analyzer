@@ -1,5 +1,48 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Cross-file performance dashboard (`/performance`)** — overview page laying every loaded HAR file out side by side:
+  - Per-file KPI matrix (total requests, P50/P95/P99 response time, total bytes, error rate) rendered as horizontal bars on a shared per-metric scale so visual length is directly comparable across files
+  - Average timing-phase comparison (DNS, Connect, SSL, Send, TTFB, Receive) on a shared millisecond axis
+  - Response-time distribution histogram with a shared bucket axis (linear / log toggle) so each file's request-count-per-bucket can be eyeballed against the others
+  - Per-content-type performance table (count, total bytes, avg time, p95 time) grouped by file
+  - Combined Slowest / Largest top-N lists across all files with file color chips and deep links to the per-file view filtered to the URL
+  - File color legend that doubles as a discovery surface for the pair-diff dashboard once ≥ 2 files are loaded
+- **Pair diff dashboard (`/performance/diff`)** — dedicated head-to-head comparison page for any two loaded files. Sections:
+  - Headline KPI Δ cards with absolute delta + % change and tinted regression/improvement cues (`deltaTone` semantics: lower-is-better for time/bytes/errors)
+  - Per-phase timing Δ chart on a shared axis (Base in baseline color, Compare in compare color, Δ labelled per phase)
+  - Overlaid 2-color response-time distribution histogram with shared buckets and a linear / log scale toggle
+  - Per-content-type Δ table with grouped headers (Count · Bytes · Avg time · p95 time, each split into Base / Cmp / Δ), sortable columns, default sort by `|Δavg time|` desc
+  - Biggest Movers — top 10 by `|Δtime|` and top 10 by `|Δsize|`, drawn from URLs present in both runs
+  - Top 10 Regressions and top 10 Improvements (one-directional, time-based) with per-URL median, signed Δ, and % change
+  - "Only in Base" and "Only in Compare" unique-URL listings, each row deep-linking into the per-file view filtered to that URL
+  - Path-mode / Full-URL match-key toggle persisted in the query string alongside `base`, `cmp`, and `scale`
+- **"Compare two runs →" discovery links** — added to the home page and the cross-file performance dashboard (visible only when ≥ 2 files are loaded), navigating to `/performance/diff`
+- **Per-file view URL search seeding** — `app/file/[index]/page.tsx` now accepts a `?search=` query parameter and pre-populates its filter input with that value, enabling deep links from the diff dashboard's unique-URL lists
+- **Performance helper utilities (`utils/perfStats.ts`, `utils/perfFormat.ts`)** — shared math and formatting layer used by both performance pages: percentile/median, timing-phase averages, shared-bucket histogram, content-type aggregation, regressions/improvements, content-type Δ, plus `formatDelta`, `formatPctChange`, and `deltaTone`
+- **Sample HAR fixtures (`sample-hars/sample-a.har`, `sample-b.har`, `sample-c.har`)** — small fixture set used for manual verification of the pair diff flows
+
+### Changed
+
+- **`next` upgraded to `^16.2.5`** (from `^16.2.4`) — minor patch bump
+- **`next.config.ts`** — added `127.50.100.1` to `allowedDevOrigins` for local development from a non-loopback address
+- **`README.md`** — new feature bullets and usage steps for the cross-file dashboard and pair diff dashboard, expanded directory-tree section listing `app/performance/`, `utils/perfStats.ts`, and `utils/perfFormat.ts`
+- **`spec.md`** — added §4.10 (Cross-file Dashboard) and §4.11 (Pair Diff Dashboard) describing layout, query-string state, and computed metrics; pipe characters inside backtick'd table cells escaped (`\|`) so GFM tables render correctly
+- **`DEPLOYMENT.md`** — step list now states the Next.js 16 minimum Node version (20.9+), the standalone-asset copy step, and the env-var-based PM2 invocation
+
+### Fixed
+
+- **`deploy-vm.sh` broken standalone deployment** — the script ran `npm run build` and started PM2 against `.next/standalone/server.js` without copying `public/` and `.next/static/` into `.next/standalone/`, which would have caused 404s for every JS chunk and every `public/` asset in production. Both first-time and `--update` paths now run `cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/` after the build, matching the Next.js 16 standalone docs and the existing `Dockerfile` behaviour.
+- **`deploy-vm.sh` PORT/HOSTNAME ignored by the standalone server** — the standalone `server.js` reads `process.env.PORT` and `process.env.HOSTNAME`, not argv, so the previous `pm2 start … -- --port "$PORT"` form was silently dropped (only working because `3000` is the default). The script now exports `NODE_ENV=production PORT="$PORT" HOSTNAME=0.0.0.0` before invoking `pm2 start`, and `pm2 restart` in `--update` mode now passes `--update-env` so env changes propagate on redeploy.
+
+### Tests
+
+- Added `__tests__/perfStats.test.ts` covering percentile, median, timing-phase average, histogram bucket assignment, content-type aggregation, regressions/improvements, and content-type Δ helpers
+- Added `__tests__/perfFormat.test.ts` covering `formatDelta`, `formatPctChange`, and `deltaTone` semantics for lower-is-better, higher-is-better, and neutral metrics
+
 ## [0.1.0]
 
 ### Added
