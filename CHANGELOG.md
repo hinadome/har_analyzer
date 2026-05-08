@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.1]
 
 ### Changed
 
@@ -18,8 +18,6 @@
 ### Tests
 
 - Added 6 tests in `__tests__/contentDiff.test.ts` covering `sha256Hex`: NIST canonical vectors for the empty string and `"abc"`, hex-format shape (`/^[0-9a-f]{64}$/`), equality of equal inputs, inequality of different inputs, and large-input correctness.
-
-## [0.1.1]
 
 ### Added
 
