@@ -1,26 +1,27 @@
-'use client';
+"use client";
 
-import { useState, useMemo, Suspense } from 'react';
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import StatusBadge from '@/components/StatusBadge';
-import { useHarStore } from '@/hooks/useHarStore';
-import { formatBytes } from '@/utils/harParser';
+import { useState, useMemo, useEffect, Suspense } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import StatusBadge from "@/components/StatusBadge";
+import { useHarStore } from "@/hooks/useHarStore";
+import { formatBytes } from "@/utils/harParser";
 import {
   isBinaryEntry,
   prettifyIfJson,
   truncateBody,
   computeDiff,
   entryId,
+  sha256Hex,
   stripQuery,
   buildUrlGroups,
   TRUNCATION_LIMIT,
-} from '@/utils/contentDiff';
-import type { EntryRecord } from '@/types/har';
-import type { UrlGroup } from '@/utils/contentDiff';
-import UnifiedDiffView from '@/components/UnifiedDiffView';
-import SideBySideDiffView from '@/components/SideBySideDiffView';
+} from "@/utils/contentDiff";
+import type { EntryRecord } from "@/types/har";
+import type { UrlGroup } from "@/utils/contentDiff";
+import UnifiedDiffView from "@/components/UnifiedDiffView";
+import SideBySideDiffView from "@/components/SideBySideDiffView";
 
 // ---------------------------------------------------------------------------
 // Entry row
@@ -34,11 +35,19 @@ interface EntryRowProps {
   onSelectCompare: () => void;
 }
 
-function EntryRow({ entry, isBaseline, isCompare, onSelectBaseline, onSelectCompare }: EntryRowProps) {
+function EntryRow({
+  entry,
+  isBaseline,
+  isCompare,
+  onSelectBaseline,
+  onSelectCompare,
+}: EntryRowProps) {
   const binary = isBinaryEntry(entry);
   const utc = entry.startedDateTime
-    ? new Date(entry.startedDateTime).toLocaleString('en-US', { timeZone: 'UTC' }) + ' UTC'
-    : '—';
+    ? new Date(entry.startedDateTime).toLocaleString("en-US", {
+        timeZone: "UTC",
+      }) + " UTC"
+    : "—";
 
   return (
     <tr className="border-t border-slate-200 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
@@ -66,7 +75,10 @@ function EntryRow({ entry, isBaseline, isCompare, onSelectBaseline, onSelectComp
       </td>
       {/* HAR file name */}
       <td className="py-3 px-4 text-sm font-mono text-slate-700 dark:text-slate-300 max-w-[180px]">
-        <span className="truncate block max-w-[180px]" title={entry.harFileName}>
+        <span
+          className="truncate block max-w-[180px]"
+          title={entry.harFileName}
+        >
           {entry.harFileName}
         </span>
       </td>
@@ -86,7 +98,7 @@ function EntryRow({ entry, isBaseline, isCompare, onSelectBaseline, onSelectComp
       </td>
       {/* Content type */}
       <td className="py-3 px-4 text-sm font-mono text-purple-600 dark:text-purple-400 text-xs">
-        {entry.contentType || '—'}
+        {entry.contentType || "—"}
       </td>
       {/* Size */}
       <td className="py-3 px-4 text-sm font-mono text-slate-700 dark:text-slate-300 text-right text-xs">
@@ -109,34 +121,172 @@ function EntryRow({ entry, isBaseline, isCompare, onSelectBaseline, onSelectComp
 }
 
 // ---------------------------------------------------------------------------
-// Binary fallback
+// Binary hash comparison
 // ---------------------------------------------------------------------------
 
-function BinaryFallback({ baseline, compare }: { baseline: EntryRecord; compare: EntryRecord }) {
+/**
+ * Fallback panel shown when at least one of the selected entries has a
+ * binary content type or no captured response body. Computes the SHA-256
+ * hash of each side's stored response body (when present) and reports
+ * whether they match, alongside byte sizes.
+ */
+function BinaryHashCompare({
+  baseline,
+  compare,
+}: {
+  baseline: EntryRecord;
+  compare: EntryRecord;
+}) {
+  const baseHasBody = baseline.responseContent !== undefined;
+  const cmpHasBody = compare.responseContent !== undefined;
+
+  const [baseHash, setBaseHash] = useState<string | null>(null);
+  const [cmpHash, setCmpHash] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setBaseHash(null);
+    setCmpHash(null);
+    setError(null);
+
+    (async () => {
+      try {
+        const tasks: Promise<unknown>[] = [];
+        if (baseHasBody) {
+          tasks.push(
+            sha256Hex(baseline.responseContent ?? "").then((h) => {
+              if (!cancelled) setBaseHash(h);
+            }),
+          );
+        }
+        if (cmpHasBody) {
+          tasks.push(
+            sha256Hex(compare.responseContent ?? "").then((h) => {
+              if (!cancelled) setCmpHash(h);
+            }),
+          );
+        }
+        await Promise.all(tasks);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [baseline, compare, baseHasBody, cmpHasBody]);
+
+  const bothHaveBody = baseHasBody && cmpHasBody;
+  const ready = baseHash !== null && cmpHash !== null;
+  const identical = bothHaveBody && ready && baseHash === cmpHash;
+  const different = bothHaveBody && ready && baseHash !== cmpHash;
+
+  const missingLabel =
+    !baseHasBody && !cmpHasBody
+      ? "either entry"
+      : !baseHasBody
+        ? "baseline"
+        : "compare";
+
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-6 space-y-4">
-      <p className="text-sm text-slate-600 dark:text-slate-400">
-        Body diffing is unavailable for binary or uncaptured content. Size comparison:
-      </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Line-by-line diffing is not applied to binary content. Comparing by
+          SHA-256 hash of the captured response body instead.
+        </p>
+        {error ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800/50">
+            Hash error: {error}
+          </span>
+        ) : !bothHaveBody ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
+            No body captured for {missingLabel}
+          </span>
+        ) : !ready ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+            Computing SHA-256…
+          </span>
+        ) : identical ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/50">
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+            Identical (matching SHA-256)
+          </span>
+        ) : different ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50">
+            Different (SHA-256 mismatch)
+          </span>
+        ) : null}
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 px-5 py-4">
-          <p className="text-xs text-slate-500 dark:text-slate-500 uppercase tracking-wider mb-1">Baseline</p>
-          <p className="text-lg font-bold font-mono text-slate-900 dark:text-slate-100">
-            {formatBytes(baseline.contentSize)}
-          </p>
-          <p className="text-xs font-mono text-slate-500 dark:text-slate-500 truncate mt-1" title={baseline.harFileName}>
-            {baseline.harFileName}
-          </p>
-        </div>
-        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 px-5 py-4">
-          <p className="text-xs text-slate-500 dark:text-slate-500 uppercase tracking-wider mb-1">Compare</p>
-          <p className="text-lg font-bold font-mono text-slate-900 dark:text-slate-100">
-            {formatBytes(compare.contentSize)}
-          </p>
-          <p className="text-xs font-mono text-slate-500 dark:text-slate-500 truncate mt-1" title={compare.harFileName}>
-            {compare.harFileName}
-          </p>
-        </div>
+        {[
+          {
+            label: "Baseline",
+            entry: baseline,
+            hash: baseHash,
+            hasBody: baseHasBody,
+          },
+          {
+            label: "Compare",
+            entry: compare,
+            hash: cmpHash,
+            hasBody: cmpHasBody,
+          },
+        ].map(({ label, entry, hash, hasBody }) => (
+          <div
+            key={label}
+            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 px-5 py-4 space-y-2"
+          >
+            <p className="text-xs text-slate-500 dark:text-slate-500 uppercase tracking-wider">
+              {label}
+            </p>
+            <p className="text-lg font-bold font-mono text-slate-900 dark:text-slate-100">
+              {formatBytes(entry.contentSize)}
+            </p>
+            <p
+              className="text-xs font-mono text-slate-500 dark:text-slate-500 truncate"
+              title={entry.harFileName}
+            >
+              {entry.harFileName}
+            </p>
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-1">
+                SHA-256
+              </p>
+              {!hasBody ? (
+                <p className="text-xs font-mono italic text-slate-500 dark:text-slate-500">
+                  no response body captured
+                </p>
+              ) : hash === null ? (
+                <p className="text-xs font-mono italic text-slate-500 dark:text-slate-500">
+                  computing…
+                </p>
+              ) : (
+                <p
+                  className="text-xs font-mono break-all text-slate-700 dark:text-slate-300"
+                  title={hash}
+                >
+                  {hash}
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -153,17 +303,24 @@ interface TruncationNoticeProps {
   label: string;
 }
 
-function TruncationNotice({ fullLength, showFull, onToggle, label }: TruncationNoticeProps) {
+function TruncationNotice({
+  fullLength,
+  showFull,
+  onToggle,
+  label,
+}: TruncationNoticeProps) {
   return (
     <div className="flex items-center justify-between px-4 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-xs">
       <span className="text-amber-700 dark:text-amber-400">
-        <strong>{label}</strong> truncated at {TRUNCATION_LIMIT.toLocaleString()} of {fullLength.toLocaleString()} characters
+        <strong>{label}</strong> truncated at{" "}
+        {TRUNCATION_LIMIT.toLocaleString()} of {fullLength.toLocaleString()}{" "}
+        characters
       </span>
       <button
         onClick={onToggle}
         className="ml-4 text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300 underline underline-offset-2 shrink-0"
       >
-        {showFull ? 'Show less' : 'Show full content'}
+        {showFull ? "Show less" : "Show full content"}
       </button>
     </div>
   );
@@ -175,13 +332,15 @@ function TruncationNotice({ fullLength, showFull, onToggle, label }: TruncationN
 
 function ContentDiffPageContent() {
   const searchParams = useSearchParams();
-  const urlParam = searchParams.get('url') ?? '';
+  const urlParam = searchParams.get("url") ?? "";
 
   const { analyses, isLoading } = useHarStore();
 
   // URL search state
   const [urlInput, setUrlInput] = useState(urlParam);
-  const [selectedUrl, setSelectedUrl] = useState<string | null>(urlParam || null);
+  const [selectedUrl, setSelectedUrl] = useState<string | null>(
+    urlParam || null,
+  );
   const [showDropdown, setShowDropdown] = useState(false);
   const [ignoreQuery, setIgnoreQuery] = useState(false);
 
@@ -190,7 +349,9 @@ function ContentDiffPageContent() {
   const [compareId, setCompareId] = useState<string | null>(null);
 
   // Diff mode
-  const [diffMode, setDiffMode] = useState<'unified' | 'side-by-side'>('unified');
+  const [diffMode, setDiffMode] = useState<"unified" | "side-by-side">(
+    "unified",
+  );
 
   // Truncation toggles
   const [showFullBaseline, setShowFullBaseline] = useState(false);
@@ -230,31 +391,49 @@ function ContentDiffPageContent() {
 
   // Resolve selected entry objects
   const baselineEntry = useMemo<EntryRecord | null>(
-    () => (baselineId ? urlEntries.find((e) => entryId(e) === baselineId) ?? null : null),
-    [urlEntries, baselineId]
+    () =>
+      baselineId
+        ? (urlEntries.find((e) => entryId(e) === baselineId) ?? null)
+        : null,
+    [urlEntries, baselineId],
   );
   const compareEntry = useMemo<EntryRecord | null>(
-    () => (compareId ? urlEntries.find((e) => entryId(e) === compareId) ?? null : null),
-    [urlEntries, compareId]
+    () =>
+      compareId
+        ? (urlEntries.find((e) => entryId(e) === compareId) ?? null)
+        : null,
+    [urlEntries, compareId],
   );
 
   // Diff computation
   const diffData = useMemo(() => {
     if (!baselineEntry || !compareEntry) return null;
     if (baselineId === compareId) return null;
-    if (isBinaryEntry(baselineEntry) || isBinaryEntry(compareEntry)) return null;
+    if (isBinaryEntry(baselineEntry) || isBinaryEntry(compareEntry))
+      return null;
 
-    const baseRaw = baselineEntry.responseContent ?? '';
-    const cmpRaw = compareEntry.responseContent ?? '';
+    const baseRaw = baselineEntry.responseContent ?? "";
+    const cmpRaw = compareEntry.responseContent ?? "";
 
     const baseTrunc = truncateBody(baseRaw, showFullBaseline);
     const cmpTrunc = truncateBody(cmpRaw, showFullCompare);
 
-    const basePrettified = prettifyIfJson(baseTrunc.text, baselineEntry.contentType);
-    const cmpPrettified = prettifyIfJson(cmpTrunc.text, compareEntry.contentType);
+    const basePrettified = prettifyIfJson(
+      baseTrunc.text,
+      baselineEntry.contentType,
+    );
+    const cmpPrettified = prettifyIfJson(
+      cmpTrunc.text,
+      compareEntry.contentType,
+    );
 
-    const prettified = basePrettified.wasPrettified || cmpPrettified.wasPrettified;
-    const result = computeDiff(basePrettified.text, cmpPrettified.text, prettified);
+    const prettified =
+      basePrettified.wasPrettified || cmpPrettified.wasPrettified;
+    const result = computeDiff(
+      basePrettified.text,
+      cmpPrettified.text,
+      prettified,
+    );
 
     return {
       result,
@@ -263,7 +442,14 @@ function ContentDiffPageContent() {
       cmpTruncated: cmpTrunc.wasTruncated,
       cmpFullLength: cmpTrunc.fullLength,
     };
-  }, [baselineEntry, compareEntry, baselineId, compareId, showFullBaseline, showFullCompare]);
+  }, [
+    baselineEntry,
+    compareEntry,
+    baselineId,
+    compareId,
+    showFullBaseline,
+    showFullCompare,
+  ]);
 
   // Handlers
   const handleUrlInputChange = (v: string) => {
@@ -287,7 +473,7 @@ function ContentDiffPageContent() {
   };
 
   const handleClear = () => {
-    setUrlInput('');
+    setUrlInput("");
     setSelectedUrl(null);
     setShowDropdown(false);
     setBaselineId(null);
@@ -298,13 +484,20 @@ function ContentDiffPageContent() {
 
   // Validation
   const sameEntrySelected = baselineId !== null && baselineId === compareId;
-  const bothSelected = baselineEntry !== null && compareEntry !== null && !sameEntrySelected;
-  const eitherBinary = bothSelected && (isBinaryEntry(baselineEntry!) || isBinaryEntry(compareEntry!));
+  const bothSelected =
+    baselineEntry !== null && compareEntry !== null && !sameEntrySelected;
+  const eitherBinary =
+    bothSelected &&
+    (isBinaryEntry(baselineEntry!) || isBinaryEntry(compareEntry!));
 
   // URL not found state (urlParam provided but not in store)
   const urlParamNotFound =
-    urlParam && !isLoading && analyses.length > 0 &&
-    !allUrls.some((u) => (ignoreQuery ? stripQuery(u) === stripQuery(urlParam) : u === urlParam));
+    urlParam &&
+    !isLoading &&
+    analyses.length > 0 &&
+    !allUrls.some((u) =>
+      ignoreQuery ? stripQuery(u) === stripQuery(urlParam) : u === urlParam,
+    );
 
   if (isLoading) {
     return (
@@ -323,20 +516,41 @@ function ContentDiffPageContent() {
             href="/"
             className="text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 transition-colors flex items-center gap-1.5 text-sm"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
             Home
           </Link>
           <div className="h-5 w-px bg-slate-300 dark:bg-slate-700" />
           <div className="flex items-center gap-3">
-            <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            <svg
+              className="w-5 h-5 text-blue-600 dark:text-blue-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+              />
             </svg>
             <h1 className="text-xl font-bold tracking-tight">HAR Analyzer</h1>
           </div>
-          <span className="text-slate-400 dark:text-slate-600 text-sm">/ Content Diff</span>
+          <span className="text-slate-400 dark:text-slate-600 text-sm">
+            / Content Diff
+          </span>
           <div className="ml-auto">
             <ThemeToggle />
           </div>
@@ -347,8 +561,13 @@ function ContentDiffPageContent() {
         {/* No HAR data state */}
         {!analyses.length ? (
           <div className="flex flex-col items-center justify-center py-24 space-y-4">
-            <p className="text-slate-600 dark:text-slate-400 text-lg">No HAR data loaded.</p>
-            <Link href="/" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300 underline">
+            <p className="text-slate-600 dark:text-slate-400 text-lg">
+              No HAR data loaded.
+            </p>
+            <Link
+              href="/"
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300 underline"
+            >
               ← Upload HAR files to get started
             </Link>
           </div>
@@ -371,7 +590,9 @@ function ContentDiffPageContent() {
                     }}
                     className="accent-blue-600"
                   />
-                  <span className="text-xs text-slate-600 dark:text-slate-400">Ignore query string</span>
+                  <span className="text-xs text-slate-600 dark:text-slate-400">
+                    Ignore query string
+                  </span>
                 </label>
               </div>
               <div className="relative">
@@ -409,16 +630,18 @@ function ContentDiffPageContent() {
                             {group.basePath}
                           </button>
                           {/* Full URLs under this base path (only shown when ignoreQuery is on and there are variants) */}
-                          {ignoreQuery && group.fullUrls.length > 1 && group.fullUrls.map((fullUrl) => (
-                            <button
-                              key={fullUrl}
-                              onClick={() => handleUrlSelect(fullUrl)}
-                              className="w-full text-left pl-8 pr-4 py-1.5 text-xs font-mono text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0 truncate block"
-                              title={fullUrl}
-                            >
-                              {fullUrl}
-                            </button>
-                          ))}
+                          {ignoreQuery &&
+                            group.fullUrls.length > 1 &&
+                            group.fullUrls.map((fullUrl) => (
+                              <button
+                                key={fullUrl}
+                                onClick={() => handleUrlSelect(fullUrl)}
+                                className="w-full text-left pl-8 pr-4 py-1.5 text-xs font-mono text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0 truncate block"
+                                title={fullUrl}
+                              >
+                                {fullUrl}
+                              </button>
+                            ))}
                         </div>
                       ))
                     ) : (
@@ -434,7 +657,8 @@ function ContentDiffPageContent() {
             {/* URL not found in store */}
             {urlParamNotFound && (
               <div className="rounded-xl border border-orange-200 dark:border-orange-800/50 bg-orange-50 dark:bg-orange-950/20 px-5 py-4 text-sm text-orange-700 dark:text-orange-400">
-                URL not found in loaded HAR data: <span className="font-mono break-all">{urlParam}</span>
+                URL not found in loaded HAR data:{" "}
+                <span className="font-mono break-all">{urlParam}</span>
               </div>
             )}
 
@@ -442,12 +666,18 @@ function ContentDiffPageContent() {
             {selectedUrl && (
               <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-5 py-3">
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs text-slate-500 dark:text-slate-500 uppercase tracking-wider">Selected URL</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-500 uppercase tracking-wider">
+                    Selected URL
+                  </p>
                   {ignoreQuery && (
-                    <span className="text-xs text-amber-600 dark:text-amber-400 italic">query strings ignored</span>
+                    <span className="text-xs text-amber-600 dark:text-amber-400 italic">
+                      query strings ignored
+                    </span>
                   )}
                 </div>
-                <p className="font-mono text-sm text-slate-900 dark:text-slate-100 break-all">{selectedUrl}</p>
+                <p className="font-mono text-sm text-slate-900 dark:text-slate-100 break-all">
+                  {selectedUrl}
+                </p>
               </div>
             )}
 
@@ -533,16 +763,37 @@ function ContentDiffPageContent() {
                 {/* Metadata bar */}
                 <div className="grid grid-cols-2 gap-4">
                   {[
-                    { label: 'Baseline', entry: baselineEntry },
-                    { label: 'Compare',  entry: compareEntry  },
+                    { label: "Baseline", entry: baselineEntry },
+                    { label: "Compare", entry: compareEntry },
                   ].map(({ label, entry }) => (
-                    <div key={label} className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-4 py-3 text-xs font-mono space-y-0.5">
-                      <p className="text-slate-500 dark:text-slate-500 uppercase tracking-wider text-xs font-semibold mb-1">{label}</p>
-                      <p className="text-slate-700 dark:text-slate-300 truncate" title={entry.harFileName}>{entry.harFileName}</p>
-                      <p className="text-blue-600 dark:text-blue-400 truncate" title={entry.url}>{entry.url}</p>
+                    <div
+                      key={label}
+                      className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-4 py-3 text-xs font-mono space-y-0.5"
+                    >
+                      <p className="text-slate-500 dark:text-slate-500 uppercase tracking-wider text-xs font-semibold mb-1">
+                        {label}
+                      </p>
+                      <p
+                        className="text-slate-700 dark:text-slate-300 truncate"
+                        title={entry.harFileName}
+                      >
+                        {entry.harFileName}
+                      </p>
+                      <p
+                        className="text-blue-600 dark:text-blue-400 truncate"
+                        title={entry.url}
+                      >
+                        {entry.url}
+                      </p>
                       <div className="flex items-center gap-2 pt-0.5">
                         <StatusBadge code={entry.status} />
-                        <span className="text-slate-500">{new Date(entry.startedDateTime).toLocaleString('en-US', { timeZone: 'UTC' })} UTC</span>
+                        <span className="text-slate-500">
+                          {new Date(entry.startedDateTime).toLocaleString(
+                            "en-US",
+                            { timeZone: "UTC" },
+                          )}{" "}
+                          UTC
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -555,21 +806,21 @@ function ContentDiffPageContent() {
                   </span>
                   <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <button
-                      onClick={() => setDiffMode('unified')}
+                      onClick={() => setDiffMode("unified")}
                       className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                        diffMode === 'unified'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        diffMode === "unified"
+                          ? "bg-blue-600 text-white"
+                          : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
                       }`}
                     >
                       Unified
                     </button>
                     <button
-                      onClick={() => setDiffMode('side-by-side')}
+                      onClick={() => setDiffMode("side-by-side")}
                       className={`px-4 py-1.5 text-sm font-medium border-l border-slate-200 dark:border-slate-700 transition-colors ${
-                        diffMode === 'side-by-side'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        diffMode === "side-by-side"
+                          ? "bg-blue-600 text-white"
+                          : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
                       }`}
                     >
                       Side-by-Side
@@ -577,16 +828,29 @@ function ContentDiffPageContent() {
                   </div>
                 </div>
 
-                {/* Binary fallback */}
+                {/* Binary fallback — compare by SHA-256 hash */}
                 {eitherBinary ? (
-                  <BinaryFallback baseline={baselineEntry} compare={compareEntry} />
+                  <BinaryHashCompare
+                    baseline={baselineEntry}
+                    compare={compareEntry}
+                  />
                 ) : (
                   <>
                     {/* Identical banner */}
                     {diffData?.result.identical && (
                       <div className="rounded-lg border border-green-200 dark:border-green-800/50 bg-green-50 dark:bg-green-950/20 px-5 py-3 text-sm font-semibold text-green-700 dark:text-green-400 flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
                         </svg>
                         Identical — both response bodies match exactly
                       </div>
@@ -618,11 +882,12 @@ function ContentDiffPageContent() {
                     )}
 
                     {/* Diff view */}
-                    {diffData && (
-                      diffMode === 'unified'
-                        ? <UnifiedDiffView result={diffData.result} />
-                        : <SideBySideDiffView result={diffData.result} />
-                    )}
+                    {diffData &&
+                      (diffMode === "unified" ? (
+                        <UnifiedDiffView result={diffData.result} />
+                      ) : (
+                        <SideBySideDiffView result={diffData.result} />
+                      ))}
                   </>
                 )}
               </div>

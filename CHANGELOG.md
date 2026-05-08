@@ -1,5 +1,24 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **Content Diff binary fallback now compares by SHA-256 hash** — previously, when at least one of the two selected entries had a binary content type or no captured response body, the fallback panel only displayed byte sizes, leaving users with no way to tell whether two binary responses were equal. The panel now asynchronously computes the SHA-256 hash of each side's stored `responseContent` (via the Web Crypto API, `crypto.subtle.digest("SHA-256", …)`) and renders both 64-character hex digests side-by-side along with the byte sizes. A status banner reports the comparison result:
+  - **Identical (matching SHA-256)** — both hashes equal
+  - **Different (SHA-256 mismatch)** — hashes differ
+  - **Computing SHA-256…** — digest is in flight
+  - **No body captured for {baseline | compare | either entry}** — `responseContent` is missing on at least one side (common for binary bodies in many HAR exporters)
+  - **Hash error: …** — `crypto.subtle` is unavailable (e.g. non-secure dev context)
+
+### Added
+
+- **`sha256Hex(text: string): Promise<string>`** in `utils/contentDiff.ts` — UTF-8-encodes the input, runs it through `crypto.subtle.digest("SHA-256", …)`, and returns a lowercase hex digest. Throws when the Web Crypto API is unavailable. Used by the binary fallback panel; reusable elsewhere.
+
+### Tests
+
+- Added 6 tests in `__tests__/contentDiff.test.ts` covering `sha256Hex`: NIST canonical vectors for the empty string and `"abc"`, hex-format shape (`/^[0-9a-f]{64}$/`), equality of equal inputs, inequality of different inputs, and large-input correctness.
+
 ## [0.1.1]
 
 ### Added

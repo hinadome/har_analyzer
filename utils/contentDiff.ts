@@ -1,5 +1,5 @@
-import { diffLines, diffWordsWithSpace } from 'diff';
-import type { EntryRecord } from '@/types/har';
+import { diffLines, diffWordsWithSpace } from "diff";
+import type { EntryRecord } from "@/types/har";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -8,7 +8,7 @@ import type { EntryRecord } from '@/types/har';
 /** A single span of characters within a line, used for intra-line highlighting */
 export interface IntraSpan {
   text: string;
-  kind: 'equal' | 'removed' | 'added';
+  kind: "equal" | "removed" | "added";
 }
 
 /** A single rendered line in the diff output */
@@ -18,7 +18,7 @@ export interface DiffLine {
   /** Raw text of the line (without trailing newline) */
   text: string;
   /** Classification of this line */
-  kind: 'equal' | 'removed' | 'added' | 'placeholder';
+  kind: "equal" | "removed" | "added" | "placeholder";
   /**
    * Intra-line spans — populated only for 'removed' and 'added' lines that
    * are paired with a matching change on the opposite side.
@@ -59,13 +59,13 @@ export interface UrlGroup {
 export const TRUNCATION_LIMIT = 50_000;
 
 const BINARY_MIME_PREFIXES = [
-  'image/',
-  'audio/',
-  'video/',
-  'font/',
-  'application/octet-stream',
-  'application/zip',
-  'application/pdf',
+  "image/",
+  "audio/",
+  "video/",
+  "font/",
+  "application/octet-stream",
+  "application/zip",
+  "application/pdf",
 ];
 
 // ---------------------------------------------------------------------------
@@ -85,7 +85,7 @@ export function stripQuery(url: string): string {
     return u.origin + u.pathname;
   } catch {
     // Fallback: strip from '?' or '#' onward
-    return url.split('?')[0].split('#')[0];
+    return url.split("?")[0].split("#")[0];
   }
 }
 
@@ -97,7 +97,10 @@ export function stripQuery(url: string): string {
  *
  * When ignoreQuery is false, each full URL is its own group with one entry.
  */
-export function buildUrlGroups(urls: string[], ignoreQuery: boolean): UrlGroup[] {
+export function buildUrlGroups(
+  urls: string[],
+  ignoreQuery: boolean,
+): UrlGroup[] {
   if (!ignoreQuery) {
     return urls.map((u) => ({ basePath: u, fullUrls: [u] }));
   }
@@ -129,7 +132,7 @@ export function entryId(e: EntryRecord): string {
 /** Returns true when the entry has no diffable text body */
 export function isBinaryEntry(entry: EntryRecord): boolean {
   if (entry.responseContent === undefined) return true;
-  const ct = entry.contentType ?? '';
+  const ct = entry.contentType ?? "";
   return BINARY_MIME_PREFIXES.some((p) => ct.startsWith(p));
 }
 
@@ -144,10 +147,10 @@ export function isBinaryEntry(entry: EntryRecord): boolean {
  */
 export function prettifyIfJson(
   body: string,
-  contentType: string
+  contentType: string,
 ): { text: string; wasPrettified: boolean } {
-  const ct = (contentType ?? '').toLowerCase();
-  const isJson = ct === 'application/json' || ct.endsWith('+json');
+  const ct = (contentType ?? "").toLowerCase();
+  const isJson = ct === "application/json" || ct.endsWith("+json");
   if (!isJson) return { text: body, wasPrettified: false };
   try {
     const parsed = JSON.parse(body);
@@ -163,13 +166,36 @@ export function prettifyIfJson(
  */
 export function truncateBody(
   body: string,
-  showFull: boolean
+  showFull: boolean,
 ): { text: string; wasTruncated: boolean; fullLength: number } {
   const fullLength = body.length;
   if (!showFull && fullLength > TRUNCATION_LIMIT) {
-    return { text: body.slice(0, TRUNCATION_LIMIT), wasTruncated: true, fullLength };
+    return {
+      text: body.slice(0, TRUNCATION_LIMIT),
+      wasTruncated: true,
+      fullLength,
+    };
   }
   return { text: body, wasTruncated: false, fullLength };
+}
+
+/**
+ * Compute the SHA-256 hash of a UTF-8 string and return it as a lowercase hex
+ * digest. Used for fallback equality comparison on binary response bodies
+ * where line-by-line diffing is not meaningful.
+ *
+ * Relies on the Web Crypto API, available in modern browsers (in secure
+ * contexts) and Node 18+. Throws when crypto.subtle is unavailable.
+ */
+export async function sha256Hex(text: string): Promise<string> {
+  if (typeof crypto === "undefined" || !crypto.subtle) {
+    throw new Error("Web Crypto API not available");
+  }
+  const bytes = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 // ---------------------------------------------------------------------------
@@ -181,8 +207,8 @@ export function truncateBody(
  * Drops the trailing empty string produced by a trailing newline.
  */
 function splitLines(value: string): string[] {
-  const parts = value.split('\n');
-  if (parts.length > 0 && parts[parts.length - 1] === '') {
+  const parts = value.split("\n");
+  if (parts.length > 0 && parts[parts.length - 1] === "") {
     parts.pop();
   }
   return parts;
@@ -191,7 +217,7 @@ function splitLines(value: string): string[] {
 function makeLine(
   lineNumber: number | null,
   text: string,
-  kind: DiffLine['kind']
+  kind: DiffLine["kind"],
 ): DiffLine {
   return { lineNumber, text, kind, spans: [] };
 }
@@ -203,7 +229,7 @@ function makeLine(
 export function computeDiff(
   baseline: string,
   compare: string,
-  prettified = false
+  prettified = false,
 ): DiffResult {
   try {
     const identical = baseline === compare;
@@ -234,22 +260,28 @@ export function computeDiff(
 
           if (remText !== null && addText !== null) {
             // Both sides have a line — compute intra-line spans
-            const leftLine = makeLine(leftLineNum++, remText, 'removed');
-            const rightLine = makeLine(rightLineNum++, addText, 'added');
+            const leftLine = makeLine(leftLineNum++, remText, "removed");
+            const rightLine = makeLine(rightLineNum++, addText, "added");
 
             const wordDiff = diffWordsWithSpace(remText, addText);
             leftLine.spans = wordDiff
               .filter((s) => !s.added)
-              .map((s) => ({
-                text: s.value,
-                kind: s.removed ? 'removed' : 'equal',
-              } as IntraSpan));
+              .map(
+                (s) =>
+                  ({
+                    text: s.value,
+                    kind: s.removed ? "removed" : "equal",
+                  }) as IntraSpan,
+              );
             rightLine.spans = wordDiff
               .filter((s) => !s.removed)
-              .map((s) => ({
-                text: s.value,
-                kind: s.added ? 'added' : 'equal',
-              } as IntraSpan));
+              .map(
+                (s) =>
+                  ({
+                    text: s.value,
+                    kind: s.added ? "added" : "equal",
+                  }) as IntraSpan,
+              );
 
             leftLines.push(leftLine);
             rightLines.push(rightLine);
@@ -257,15 +289,15 @@ export function computeDiff(
             unifiedLines.push(rightLine);
           } else if (remText !== null) {
             // Extra removed line — no pair
-            const leftLine = makeLine(leftLineNum++, remText, 'removed');
+            const leftLine = makeLine(leftLineNum++, remText, "removed");
             leftLines.push(leftLine);
-            rightLines.push(makeLine(null, '', 'placeholder'));
+            rightLines.push(makeLine(null, "", "placeholder"));
             unifiedLines.push(leftLine);
           } else if (addText !== null) {
             // Extra added line — no pair
-            const rightLine = makeLine(rightLineNum++, addText, 'added');
+            const rightLine = makeLine(rightLineNum++, addText, "added");
             rightLines.push(rightLine);
-            leftLines.push(makeLine(null, '', 'placeholder'));
+            leftLines.push(makeLine(null, "", "placeholder"));
             unifiedLines.push(rightLine);
           }
         }
@@ -273,26 +305,26 @@ export function computeDiff(
       } else if (c.removed) {
         // Removed with no following add
         for (const text of splitLines(c.value)) {
-          const line = makeLine(leftLineNum++, text, 'removed');
+          const line = makeLine(leftLineNum++, text, "removed");
           leftLines.push(line);
-          rightLines.push(makeLine(null, '', 'placeholder'));
+          rightLines.push(makeLine(null, "", "placeholder"));
           unifiedLines.push(line);
         }
         i++;
       } else if (c.added) {
         // Added with no preceding remove
         for (const text of splitLines(c.value)) {
-          const line = makeLine(rightLineNum++, text, 'added');
+          const line = makeLine(rightLineNum++, text, "added");
           rightLines.push(line);
-          leftLines.push(makeLine(null, '', 'placeholder'));
+          leftLines.push(makeLine(null, "", "placeholder"));
           unifiedLines.push(line);
         }
         i++;
       } else {
         // Equal
         for (const text of splitLines(c.value)) {
-          const leftLine = makeLine(leftLineNum++, text, 'equal');
-          const rightLine = makeLine(rightLineNum++, text, 'equal');
+          const leftLine = makeLine(leftLineNum++, text, "equal");
+          const rightLine = makeLine(rightLineNum++, text, "equal");
           leftLines.push(leftLine);
           rightLines.push(rightLine);
           unifiedLines.push(leftLine);
