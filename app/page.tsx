@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import FileUpload from "@/components/FileUpload";
@@ -9,6 +9,7 @@ import { HarAnalysis } from "@/types/har";
 import { parseHarFile, analyzeHar, buildHarStore } from "@/utils/harParser";
 import { saveHarStoreAsync, clearHarStoreAsync } from "@/utils/storage";
 import { useHarStore, updateHarStoreCache } from "@/hooks/useHarStore";
+import { analyzeStore } from "@/utils/corsAnalysis";
 
 export default function HomePage() {
   const { analyses, isLoading: isStoreLoading } = useHarStore();
@@ -16,6 +17,12 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
 
   const isLoading = isStoreLoading || isProcessing;
+
+  // CORS audit summary — drives the pill badge below the file list.
+  const corsReport = useMemo(
+    () => (analyses.length > 0 ? analyzeStore(analyses) : null),
+    [analyses],
+  );
 
   const handleFilesSelected = async (files: File[]) => {
     setIsProcessing(true);
@@ -237,6 +244,33 @@ export default function HomePage() {
                     >
                       Compare two runs
                       <span aria-hidden>→</span>
+                    </Link>
+                  )}
+                  {corsReport && corsReport.crossOriginCount > 0 && (
+                    <Link
+                      href="/cors"
+                      className="relative inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-blue-600/40 dark:border-blue-400/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 text-sm font-medium transition-colors"
+                      title={`CORS audit — ${corsReport.errorCount} error${corsReport.errorCount === 1 ? "" : "s"}, ${corsReport.warningCount} warning${corsReport.warningCount === 1 ? "" : "s"}`}
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.8}
+                          d="M12 11c0-1.657-1.343-3-3-3s-3 1.343-3 3v3a2 2 0 002 2h2a2 2 0 002-2v-3zm6 0c0-1.657-1.343-3-3-3s-3 1.343-3 3v3a2 2 0 002 2h2a2 2 0 002-2v-3z"
+                        />
+                      </svg>
+                      CORS Audit
+                      {corsReport.errorCount > 0 && (
+                        <span className="ml-0.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none">
+                          {corsReport.errorCount}
+                        </span>
+                      )}
                     </Link>
                   )}
                 </div>

@@ -8,6 +8,7 @@ import { HarAnalysis, EntryRecord } from "@/types/har";
 import { useHarStore } from "@/hooks/useHarStore";
 import { formatBytes, formatTime } from "@/utils/harParser";
 import { computePerfStats, computeTimingAvgs } from "@/utils/perfStats";
+import { isCrossOrigin } from "@/utils/corsAnalysis";
 import StatusBadge from "@/components/StatusBadge";
 import { statusColorClass } from "@/components/StatusBadge";
 
@@ -166,6 +167,10 @@ function FileDetailPageContent() {
 
   const uniqueStatuses = Object.keys(analysis.statusCodeCounts).length;
   const uniqueContentTypes = Object.keys(analysis.contentTypeCounts).length;
+  const crossOriginCount = analysis.entries.reduce(
+    (n, e) => (isCrossOrigin(e) ? n + 1 : n),
+    0,
+  );
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
@@ -219,9 +224,21 @@ function FileDetailPageContent() {
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 font-mono break-all">
             {analysis.fileName}
           </h2>
-          <p className="text-slate-600 dark:text-slate-500 text-sm mt-1">
-            File index {fileIndex}
-          </p>
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            <p className="text-slate-600 dark:text-slate-500 text-sm">
+              File index {fileIndex}
+            </p>
+            {crossOriginCount > 0 && (
+              <Link
+                href={`/cors?file=${fileIndex}`}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-blue-600/40 dark:border-blue-400/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 text-xs font-medium transition-colors"
+                title={`${crossOriginCount} cross-origin request${crossOriginCount === 1 ? "" : "s"} in this file`}
+              >
+                CORS Audit
+                <span aria-hidden>→</span>
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Stats bar */}

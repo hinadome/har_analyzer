@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.2]
+
+### Added
+
+- **CORS Audit page (`/cors`)** — new diagnostic dashboard that flags potential Cross-Origin Resource Sharing problems across every loaded HAR file:
+  - Pure analyzer in `utils/corsAnalysis.ts` (`analyzeStore`, `pairPreflights`, `analyzeEntry`) detects nine finding kinds — `preflight-failed`, `preflight-slow` (> 1000 ms), `acao-missing`, `acao-mismatch`, `acao-wildcard-with-credentials`, `method-not-allowed`, `header-not-allowed`, `credentials-flag-missing`, `actual-request-blocked` — with case-insensitive header lookup, comma-separated allow-list parsing, and `null` / wildcard origin handling
+  - Preflight-to-actual pairing by `(URL, ACRM-method, time-window)` within `PREFLIGHT_PAIR_WINDOW_MS = 5000` ms; each actual request is consumed by at most one preflight
+  - `/cors` page wires the analyzer into a 4-card KPI summary (Total findings, Failed preflights, Slow preflights, Cross-origin requests), a flat issues table sorted error → warning → info, and a click-to-expand Handshake panel showing the request / response CORS headers side-by-side plus the per-finding sent / expected / received detail triplet
+  - Collapsible "Preflight pairs" section chains every OPTIONS request to its matching actual request with a single-pill verdict (OK / Warnings / Preflight failed / Actual blocked / No actual request) and Δ start time
+  - URL-driven filter state: `?file=`, `?severity=`, `?origin=`, `?expand=<fileIndex>:<entryIndex>` — `expand` deep-links to a specific entry and scrolls it into view on load
+- **Discovery links** — home page (`app/page.tsx`) renders a **CORS Audit** pill in the Comparison Summary button group when at least one cross-origin request is captured, with a red error-count badge when `errorCount > 0`. Per-file page (`app/file/[index]/page.tsx`) renders a **CORS Audit →** link next to the file index when that file has any cross-origin entries, deep-linking to `/cors?file={index}`.
+
+### Tests
+
+- Added 45 tests in `__tests__/corsAnalysis.test.ts` — one positive + one negative case per finding kind, plus edge cases (case-insensitive header lookup, comma-separated allow lists with whitespace, wildcard `ACAH`, `null` origin, same-origin skip, pairing window respected). All 152 suites green.
+
 ## [0.1.1]
 
 ### Changed

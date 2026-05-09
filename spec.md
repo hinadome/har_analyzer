@@ -391,13 +391,68 @@ Dedicated baseline-vs-compare delta view for two specific HAR files. Discovery l
 - `formatPctChange(base, cmp)` — `(cmp - base) / base × 100`, formatted with 1 decimal place; returns `—` when `base === 0`.
 - `deltaTone(delta, direction)` — returns the Tailwind class string for the cell tint. `direction` is `"lower"` (lower is better — green for negative Δ, red for positive), `"higher"`, or `"neutral"` (no tint).
 
-### 4.12 Sorting
+### 4.12 CORS Audit page (`/cors`)
+
+Cross-Origin Resource Sharing diagnostic dashboard backed by the pure analyzer in `utils/corsAnalysis.ts`. Runs across every loaded HAR file, surfacing potential CORS failures and warnings with enough context (handshake headers, preflight pairing) to triage them without re-opening DevTools. Discovery links appear on the home page and on each per-file page when the relevant file has at least one cross-origin request.
+
+**Pre-conditions and fallbacks:**
+
+- **No files loaded** — page shows the standard "No HAR files loaded" message and a link back to upload.
+- **No cross-origin traffic** — KPI cards render with zeros; the issues table renders an "All cross-origin requests in scope passed the audit" placeholder.
+
+**URL state:**
+
+| Parameter  | Values                                  | Default |
+| ---------- | --------------------------------------- | ------- |
+| `file`     | `all` \| file index `[0, fileCount)`    | `all`   |
+| `severity` | `all` \| `error` \| `warning` \| `info` | `all`   |
+| `origin`   | one of the request `Origin` values seen | `""`    |
+| `expand`   | `<fileIndex>:<entryIndex>`              | `""`    |
+
+`expand` deep-links to a specific entry: when present on initial load, the matching row is pre-expanded and scrolled into view.
+
+**Detection model:**
+
+A request is **cross-origin** when its `Origin` request header is present and that origin differs from the request URL's origin (`null`-origin requests are also treated as cross-origin). A **preflight** is an `OPTIONS` request that carries `Access-Control-Request-Method`. Each preflight is paired with the matching actual request by `(URL, ACRM-method)` within `PREFLIGHT_PAIR_WINDOW_MS = 5000`; an actual request is consumed by at most one preflight.
+
+**Finding kinds** (`utils/corsAnalysis.ts` → `CorsFindingKind`):
+
+| Kind                             | Severity | Trigger                                                                                                                        |
+| -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `preflight-failed`               | error    | OPTIONS preflight returned `0` (failed) or `>= 400`                                                                            |
+| `preflight-slow`                 | warning  | OPTIONS preflight `entry.time > PREFLIGHT_SLOW_MS` (1000 ms)                                                                   |
+| `acao-missing`                   | error    | Cross-origin response has no `Access-Control-Allow-Origin` header                                                              |
+| `acao-mismatch`                  | error    | `ACAO` is neither `*` nor an exact match of the request `Origin`                                                               |
+| `acao-wildcard-with-credentials` | error    | `ACAO: *` paired with a credentialed (Cookie / Authorization) actual request, or with `Access-Control-Allow-Credentials: true` |
+| `method-not-allowed`             | error    | Preflight's `Access-Control-Request-Method` is not in the response's `Access-Control-Allow-Methods`                            |
+| `header-not-allowed`             | error    | Any token in `Access-Control-Request-Headers` is missing from `Access-Control-Allow-Headers` (wildcard `*` accepted)           |
+| `credentials-flag-missing`       | error    | Credentialed actual request whose response lacks `Access-Control-Allow-Credentials: true`                                      |
+| `actual-request-blocked`         | error    | Cross-origin actual request returned `0` or `>= 400` and the response carries no CORS headers                                  |
+
+Findings carry an optional `detail: { sent?, expected?, received? }` triplet that the handshake panel renders as inline cards.
+
+**Sections (in order):**
+
+| Section         | Content                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scope bar       | File chips (All files + per-file with palette dot and finding count) + severity chips (All / Error / Warning / Info) + an Origin `<select>` rendered when more than one Origin is present. All bound to URL state.                                                                                                                                                                                                               |
+| KPI summary     | Four cards: **Total findings** (with `error / warning / info` sub-line), **Failed preflights** (`failedPreflightCount` / total preflights), **Slow preflights** (count of `preflight-slow` findings, `> 1000 ms`), **Cross-origin requests** (non-preflight cross-origin entries with the `Origin` header).                                                                                                                      |
+| Issues table    | Flat one-row-per-finding table (sorted error → warning → info). Columns: Severity · Kind · File (in `all` scope) · Status · Method (with `PF` chip on preflights) · URL · Time · Detail. Rows are click-to-expand and toggle `?expand=<entryId>`.                                                                                                                                                                                |
+| Handshake panel | Inline expansion of the clicked row. Two cards on a 2-column grid: **Request** (Origin only on regular CORS entries; Origin + ACR-Method + ACR-Headers on preflights, plus a "credentialed" badge when the actual request carries `Cookie` / `Authorization`) and **Response** (six ACA-\* headers). Below: the per-entry findings list with severity icons (`✗` / `⚠` / `•`) and the sent / expected / received detail triplet. |
+| Preflight pairs | Collapsible `<details>` listing every `CorsPair`. Each card shows a verdict pill (**OK** / **Warnings** / **Preflight failed** / **Actual blocked** / **No actual request**), the source-file chip, the Δ start time between OPTIONS and actual, and two `border-l-2` rows: blue for the OPTIONS request and green for the actual request (or a red "no matching actual request found within 5000 ms" hint when unpaired).       |
+
+**Discovery links:**
+
+- Home page (`app/page.tsx`) — when `analyzeStore(...).crossOriginCount > 0`, a **CORS Audit** pill appears in the Comparison Summary button group. When `errorCount > 0`, the pill carries a small red badge with the error count.
+- Per-file page (`app/file/[index]/page.tsx`) — when the file has at least one cross-origin request, a **CORS Audit →** link appears next to the file index, deep-linking to `/cors?file={index}`.
+
+### 4.13 Sorting
 
 - Clicking a column header sorts by that field ascending; clicking again toggles descending.
 - Active sort column is highlighted with a directional arrow indicator.
 - Sort state resets to the default when the search query changes.
 
-### 4.13 Pagination
+### 4.14 Pagination
 
 - Flat entry tables (status and content type views) are paginated at 50 rows per page.
 - Previous / Next controls and a "current / total" indicator are shown when more than one page exists.
@@ -435,8 +490,14 @@ Browser FileReader API
        │                            (binary / no-body fallback:
        │                             sha256Hex() per side → BinaryHashCompare)
        │
-       └── Header Diff page      — two EntryRecord header/cookie arrays
-                                    → diffKvPairs() × 4 → HeaderDiffView
+       ├── Header Diff page      — two EntryRecord header/cookie arrays
+       │                            → diffKvPairs() × 4 → HeaderDiffView
+       │
+       └── CORS Audit page       — analyzeStore(analyses) → CorsReport
+                                    → pairPreflights() per file
+                                    → analyzeEntry() emits CorsFinding[]
+                                    → IssuesTable + HandshakePanel
+                                    + PreflightPairsSection
 ```
 
 ---
