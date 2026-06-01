@@ -446,13 +446,66 @@ Findings carry an optional `detail: { sent?, expected?, received? }` triplet tha
 - Home page (`app/page.tsx`) — when `analyzeStore(...).crossOriginCount > 0`, a **CORS Audit** pill appears in the Comparison Summary button group. When `errorCount > 0`, the pill carries a small red badge with the error count.
 - Per-file page (`app/file/[index]/page.tsx`) — when the file has at least one cross-origin request, a **CORS Audit →** link appears next to the file index, deep-linking to `/cors?file={index}`.
 
-### 4.13 Sorting
+### 4.13 Header & Cookie Search page (`/kv-search`)
+
+A free-text search page over every kv pair carried by the loaded HAR entries — request headers, response headers, request cookies, and response cookies — backed by the pure engine in `utils/kvSearch.ts`. Designed as a triage tool: locate a specific header or cookie (by name, value, or both) across one or many files without re-opening DevTools.
+
+**Pre-conditions and fallbacks:**
+
+- **No files loaded** — page shows the standard "No HAR files loaded" message and a link back to upload.
+- **Both inputs empty** — the results table renders an "Enter a name or value to search across request and response headers and cookies." placeholder. No work is done.
+- **Invalid regex (mode = `regex`)** — the offending input gains a red border and an inline `Invalid regex: …` message; the results table renders empty (no entries) until the pattern compiles.
+
+**URL state:**
+
+| Parameter | Values                                                                                      | Default    |
+| --------- | ------------------------------------------------------------------------------------------- | ---------- |
+| `name`    | free-text needle for the kv pair name side (empty = wildcard)                               | `""`       |
+| `value`   | free-text needle for the kv pair value side (empty = wildcard)                              | `""`       |
+| `url`     | free-text needle for the entry URL pre-filter (empty = no URL narrowing)                    | `""`       |
+| `scope`   | comma list of `rh` (req header) / `sh` (res header) / `rc` (req cookie) / `sc` (res cookie) | all four   |
+| `mode`    | `contains` \| `exact` \| `regex`                                                            | `contains` |
+| `cs`      | `1` (case-sensitive) \| absent (case-insensitive)                                           | absent     |
+| `file`    | `all` \| file index `[0, fileCount)`                                                        | `all`      |
+| `expand`  | `<harFileIndex>:<indexInFile>` of the row whose detail panel is open                        | `""`       |
+
+Defaults are normalised out of the URL when serialised (e.g. all four scope tokens collapse to no `scope` param). All three text inputs (`name` / `value` / `url`) are debounced 150 ms before they update the URL.
+
+**Match semantics:**
+
+| Mode       | Behaviour                                                                                                  |
+| ---------- | ---------------------------------------------------------------------------------------------------------- |
+| `contains` | Substring search. Returns every non-overlapping occurrence (used for highlighting).                        |
+| `exact`    | Whole-string match against the kv field. Returns a single full-span match when it hits.                    |
+| `regex`    | JS `RegExp` (flags `g` or `gi`) evaluated against the kv field. Invalid pattern → inline warning, no hits. |
+
+- **Same-pair AND** — when both `name` and `value` are supplied, both must match the **same** header/cookie entry (not just somewhere in the same HTTP request). An empty side is treated as a wildcard for that side.
+- **URL pre-filter** — `url` is an entry-level `contains` filter that is **always case-insensitive** and never honours `mode` / `cs` (those govern only the name / value kv matchers). Entries whose `entry.url` does not contain the needle are skipped before any kv matching runs. The filter composes as AND with name / value, and **alone is not a result driver** — when both `name` and `value` are empty the results table stays empty regardless of `url` (matches the "no needle = no results" rule).
+- **Case sensitivity** — `cs=1` flips both name and value to case-sensitive. Cookie / header names in HTTP are case-insensitive by convention; the default matches that practical behaviour.
+- **Highlight spans** — `compileMatcher(...).run(...)` returns the list of `MatchRange`s in each haystack. The expanded panel renders them via `<mark>` so the user sees exactly which substring(s) caused the hit.
+
+**Sections (in order):**
+
+| Section        | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Search bar     | `Name` + `Value` text inputs and a full-width `URL contains` input (all three debounced 150 ms). Four scope chips with `aria-pressed` colored by location (req-header blue, res-header indigo, req-cookie amber, res-cookie pink). Mode `<select>` (Contains / Exact / Regex). Case-sensitive checkbox. File `<select>` shown when ≥ 2 files loaded.                                                                                                                                                    |
+| Summary line   | `<totalHits> entries matched · <totalMatches> kv matches <scope label>` plus a per-location chip breakdown of the matched-pair counts.                                                                                                                                                                                                                                                                                                                                                                  |
+| Results table  | One row per matching entry. Columns: ▸ (expand) · File · Method · Status · URL · # matches · Timestamp (UTC). Row click toggles `?expand=<entryId>`. The URL cell renders the entry's pathname as a deep link to `/compare?url=<entry.url>` — the per-URL summary page — with `stopPropagation` so the link navigates without toggling the row. The Timestamp column formats `entry.startedDateTime` via `toLocaleString('en-US', { timeZone: 'UTC' }) + ' UTC'`, matching `/header-diff`'s entry list. |
+| Expanded panel | Inline expansion below the clicked row: full URL (also a deep link to `/header-diff?url=<entry.url>`) plus a list of every matching kv pair. Each item carries a colored location chip + name + `:` + value, with matched spans wrapped in `<mark>`.                                                                                                                                                                                                                                                    |
+
+**Discovery links:**
+
+- Home page (`app/page.tsx`) — a **Search Headers/Cookies** pill appears in the Comparison Summary button group whenever at least one file is loaded (no count badge — this is a tool, not a problem detector).
+- Per-file page (`app/file/[index]/page.tsx`) — a **Search Headers/Cookies →** link appears next to the file index, deep-linking to `/kv-search?file={index}`. Always visible (every file has headers).
+- `/cors` handshake panel — every CORS header name in the Request / Response cards is a deep link to `/kv-search?name=<header>&scope=rh|sh&file=<index>` so the audit row can be jumped into the search page pre-scoped to the relevant file and side.
+
+### 4.14 Sorting
 
 - Clicking a column header sorts by that field ascending; clicking again toggles descending.
 - Active sort column is highlighted with a directional arrow indicator.
 - Sort state resets to the default when the search query changes.
 
-### 4.14 Pagination
+### 4.15 Pagination
 
 - Flat entry tables (status and content type views) are paginated at 50 rows per page.
 - Previous / Next controls and a "current / total" indicator are shown when more than one page exists.
@@ -493,11 +546,17 @@ Browser FileReader API
        ├── Header Diff page      — two EntryRecord header/cookie arrays
        │                            → diffKvPairs() × 4 → HeaderDiffView
        │
-       └── CORS Audit page       — analyzeStore(analyses) → CorsReport
-                                    → pairPreflights() per file
-                                    → analyzeEntry() emits CorsFinding[]
-                                    → IssuesTable + HandshakePanel
-                                    + PreflightPairsSection
+       ├── CORS Audit page       — analyzeStore(analyses) → CorsReport
+       │                            → pairPreflights() per file
+       │                            → analyzeEntry() emits CorsFinding[]
+       │                            → IssuesTable + HandshakePanel
+       │                            + PreflightPairsSection
+       │
+       └── KV Search page         — EntryRecord[] (scoped by `?file=`)
+                                    → compileMatcher(name|value, mode, cs)
+                                    → searchEntries() → KvSearchOutcome
+                                    → ResultsTable + ExpandedPanel
+                                    (each KvMatch carries highlight ranges)
 ```
 
 ---

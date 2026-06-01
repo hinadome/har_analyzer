@@ -273,6 +273,26 @@ export default function HomePage() {
                       )}
                     </Link>
                   )}
+                  <Link
+                    href="/kv-search"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-blue-600/40 dark:border-blue-400/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 text-sm font-medium transition-colors"
+                    title="Search headers and cookies across loaded files"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.8}
+                        d="M21 21l-4.35-4.35M10.5 17a6.5 6.5 0 100-13 6.5 6.5 0 000 13z"
+                      />
+                    </svg>
+                    Search Headers/Cookies
+                  </Link>
                 </div>
               </div>
               <p className="text-sm text-slate-600 dark:text-slate-500 mb-4">

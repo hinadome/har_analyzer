@@ -1,5 +1,32 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Header & Cookie Search page (`/kv-search`)** — new triage page for finding specific headers or cookies across every loaded HAR file:
+  - Pure search engine in `utils/kvSearch.ts` (`compileMatcher`, `searchEntries`, plus `parseScopeParam` / `serializeScopeParam` / `kvEntryId` URL helpers) supporting three match modes (`contains`, `exact`, `regex`) with optional case sensitivity. Invalid regex patterns are surfaced as inline warnings via a discriminated `KvSearchError` instead of throwing.
+  - **Same-pair AND** semantics: when both `name` and `value` are supplied, both needles must match the same header/cookie entry (not just somewhere in the same HTTP request). Empty input on either side is treated as a wildcard for that side.
+  - Per-needle highlight ranges (`MatchRange[]`) returned from the matcher, used by the expanded panel to wrap matched substrings in `<mark>`.
+  - `/kv-search` page wires the engine into a URL-driven UI: `Name` + `Value` inputs and a full-width `URL contains` pre-filter (all three debounced 150 ms), four `aria-pressed` scope chips (req header / res header / req cookie / res cookie, color-coded blue / indigo / amber / pink), Mode `<select>`, case-sensitive checkbox, File scope `<select>` (shown when ≥ 2 files loaded). Empty / no-match / regex-error fallback states.
+  - Results table: one row per matching entry with file color, method, status, URL, match count, and time. Click-to-expand reveals a per-pair list with the matching name / value spans highlighted and a colored location chip.
+  - **URL pre-filter** — optional `?url=` needle that narrows entries to those whose URL contains the substring (always case-insensitive, independent from `mode` / `cs`). Composes as AND with `name` / `value`; never produces results on its own when both name and value are empty. The summary line surfaces the active URL needle.
+  - URL state: `?name=&value=&url=&scope=rh,sh,rc,sc&mode=contains|exact|regex&cs=0|1&file=all|<index>&expand=<harFileIndex>:<indexInFile>` — defaults are normalised out (e.g. all-four-scope chips collapse to no `scope` param). `?expand=` deep-links to a specific row and scrolls it into view on load.
+- **Discovery links** for the new search page:
+  - Home page (`app/page.tsx`) — **Search Headers/Cookies** pill added to the Comparison Summary button group; visible whenever ≥ 1 file is loaded.
+  - Per-file page (`app/file/[index]/page.tsx`) — **Search Headers/Cookies →** link added next to the file index, deep-linking to `/kv-search?file={index}`.
+  - `/cors` handshake panel (`app/cors/page.tsx`) — every CORS header name in the Request / Response cards is now a link to `/kv-search?name=<header>&scope=rh|sh&file=<index>` so audit findings can be jumped into the search page pre-scoped to the relevant file and side.
+  - `/kv-search` row-level deep link — the URL column in the results table is a blue link to `/compare?url=<entry.url>` (the per-URL summary page), so a kv-search hit can be opened in the broader per-URL view in one click. The row click still toggles the expanded panel; the link uses `stopPropagation` to navigate cleanly.
+  - `/kv-search` expanded-panel deep link — the full URL line inside the expanded panel is a blue link to `/header-diff?url=<entry.url>`, taking the user straight into a side-by-side header diff for that URL once they've drilled into a specific hit.
+
+### Changed
+
+- `/kv-search` results table — the **Time** column (request duration in ms via `formatTime(entry.time)`) is replaced by **Timestamp (UTC)**, formatted exactly the way `/header-diff`'s entry list renders it: `new Date(entry.startedDateTime).toLocaleString('en-US', { timeZone: 'UTC' }) + ' UTC'`, with `—` when the field is missing. Column count and layout otherwise unchanged.
+
+### Tests
+
+- Added 35 tests in `__tests__/kvSearch.test.ts` — `compileMatcher` (6), scope mask + AND-within-pair (8), case sensitivity (4), exact / regex / invalid-regex modes (4), summary (1), scope-param URL helpers (6), basic semantics (1), URL pre-filter (5: substring narrowing, case-insensitive regardless of `cs`, URL-only returns empty without name/value, empty URL = wildcard, composition with scope / case / name matcher). All suites green; `npx tsc --noEmit` clean.
+
 ## [0.1.2]
 
 ### Added

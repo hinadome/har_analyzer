@@ -780,6 +780,8 @@ function HandshakePanel({ entry }: { entry: CorsEntry }) {
           title="Request"
           subtitle={`${ent.method} ${entry.isPreflight ? "(preflight)" : ""}`}
           rows={reqRows}
+          fileIndex={entry.fileIndex}
+          searchScope="rh"
           extra={
             !entry.isPreflight && entry.credentialed ? (
               <div className="text-xs text-amber-700 dark:text-amber-300 mt-2">
@@ -792,6 +794,8 @@ function HandshakePanel({ entry }: { entry: CorsEntry }) {
           title="Response"
           subtitle={`HTTP ${ent.status}${ent.statusText ? " " + ent.statusText : ""}`}
           rows={resRows}
+          fileIndex={entry.fileIndex}
+          searchScope="sh"
         />
       </div>
       {entry.findings.length > 0 && (
@@ -814,11 +818,17 @@ function HeaderColumn({
   title,
   subtitle,
   rows,
+  fileIndex,
+  searchScope,
   extra,
 }: {
   title: string;
   subtitle?: string;
   rows: ReadonlyArray<{ name: string; value: string | undefined }>;
+  /** File index to pass through to the kv-search deep link. */
+  fileIndex: number;
+  /** Scope token for the kv-search deep link (`rh` or `sh`). */
+  searchScope: "rh" | "sh";
   extra?: React.ReactNode;
 }) {
   return (
@@ -834,21 +844,30 @@ function HeaderColumn({
         )}
       </div>
       <dl className="space-y-1.5">
-        {rows.map((r) => (
-          <div
-            key={r.name}
-            className="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] gap-2 text-xs"
-          >
-            <dt className="font-mono text-slate-600 dark:text-slate-500 truncate">
-              {r.name}
-            </dt>
-            <dd
-              className={`font-mono break-all ${r.value ? "text-slate-800 dark:text-slate-200" : "text-slate-400 dark:text-slate-600 italic"}`}
+        {rows.map((r) => {
+          const href = `/kv-search?name=${encodeURIComponent(r.name)}&scope=${searchScope}&file=${fileIndex}`;
+          return (
+            <div
+              key={r.name}
+              className="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] gap-2 text-xs"
             >
-              {r.value ?? "—"}
-            </dd>
-          </div>
-        ))}
+              <dt className="font-mono text-slate-600 dark:text-slate-500 truncate">
+                <Link
+                  href={href}
+                  title={`Search ${title.toLowerCase()} headers for ${r.name}`}
+                  className="hover:text-blue-700 dark:hover:text-blue-300 hover:underline"
+                >
+                  {r.name}
+                </Link>
+              </dt>
+              <dd
+                className={`font-mono break-all ${r.value ? "text-slate-800 dark:text-slate-200" : "text-slate-400 dark:text-slate-600 italic"}`}
+              >
+                {r.value ?? "—"}
+              </dd>
+            </div>
+          );
+        })}
       </dl>
       {extra}
     </div>

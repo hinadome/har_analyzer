@@ -238,6 +238,14 @@ function FileDetailPageContent() {
                 <span aria-hidden>→</span>
               </Link>
             )}
+            <Link
+              href={`/kv-search?file=${fileIndex}`}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-blue-600/40 dark:border-blue-400/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 text-xs font-medium transition-colors"
+              title="Search this file's headers and cookies"
+            >
+              Search Headers/Cookies
+              <span aria-hidden>→</span>
+            </Link>
           </div>
         </div>
 

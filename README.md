@@ -16,6 +16,7 @@ A browser-based tool for uploading, analyzing, and comparing multiple HAR (HTTP 
 - Per-request timing breakdown: stacked bar chart and phase grid (DNS, Connect, SSL, Send, TTFB, Receive) shown when expanding any individual request
 - **Content Diff page** — search for a URL, select any two entries, and view a line-by-line diff of their response bodies with intra-line character highlighting, JSON auto-prettification, unified and side-by-side modes, and an "ignore query string" toggle for grouping requests by base path. When either entry is binary (image, font, audio/video, octet-stream, zip, pdf) or has no captured body, the panel falls back to a SHA-256 hash comparison that reports whether the two responses are identical, different, or have no body captured
 - **Header Diff page** — same URL search and entry selection as Content Diff, but diffs request headers, response headers, request cookies, and response cookies between two entries — showing added, removed, changed, and equal key-value pairs in a color-coded table
+- **Header & Cookie Search page** (`/kv-search`) — free-text search over every header and cookie carried by the loaded HARs. Three needles (Name / Value / URL contains) with `contains` / `exact` / `regex` modes, case-sensitive toggle, four scope chips (req header / res header / req cookie / res cookie), and a file scope. Same-pair AND semantics; results table with click-to-expand highlighted match spans; the URL cell deep-links to `/compare`, and the expanded full URL deep-links to `/header-diff`
 - **CORS Audit page** (`/cors`) — automated review of every cross-origin request in the loaded HARs. Detects nine finding kinds (failed/slow preflights, missing or mismatched `Access-Control-Allow-Origin`, wildcard ACAO with credentials, disallowed method, disallowed request header, missing `Access-Control-Allow-Credentials` flag, blocked actual request). KPI cards summarize totals, failed/slow preflights, and cross-origin counts; the issues table is filterable by file, severity, and Origin; clicking any row reveals a side-by-side request/response handshake panel with each finding's sent / expected / received triplet. A collapsible "Preflight pairs" section chains every OPTIONS request to its matching actual request within a 5 s window with a single-pill verdict per pair
 - All data processed entirely in the browser — no server required
 - Persistent state via `IndexedDB` across page refreshes to bypass typical browser quota limits
@@ -51,7 +52,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 8. **Diff response bodies** — click "Content Diff" on the compare page (or navigate to `/content-diff`) to search for a URL and compare the response body of any two entries side by side. Toggle "Ignore query string" to group requests to the same endpoint regardless of query params. Click any URL in the entry table to jump to the compare page for that request.
 9. **Diff headers and cookies** — click "Header Diff" on the compare page (or navigate to `/header-diff`) to compare request/response headers and cookies between any two entries. Color-coded rows show exactly which headers were added, removed, or changed.
 10. **Audit CORS** — when at least one cross-origin request is captured, click "CORS Audit" on the home page (or the per-file CORS Audit → link in `/file/[index]`) to open `/cors`. Filter by file scope, severity, or request Origin; click a finding to expand the handshake panel; or open the Preflight pairs section to see each OPTIONS request chained with its actual follow-up request.
-11. **Remove or clear files** — click the × on a file chip to remove it, or use "Clear all" in the header to reset.
+11. **Search headers and cookies** — click "Search Headers/Cookies" on the home page (or the per-file link in `/file/[index]`, or any header name in the `/cors` handshake panel) to open `/kv-search`. Enter a name, value, or URL fragment; pick a mode and scope; click any result row to expand the matching pair(s) with the matched substrings highlighted.
+12. **Remove or clear files** — click the × on a file chip to remove it, or use "Clear all" in the header to reset.
 
 ### Understanding timing data
 
@@ -99,6 +101,8 @@ har_analyzer/
 │   │   └── page.tsx        # Response body diff page with unified/side-by-side modes
 │   ├── header-diff/
 │   │   └── page.tsx        # Header/cookie diff page
+│   ├── kv-search/
+│   │   └── page.tsx        # Header & cookie search across all loaded files
 │   └── cors/
 │       └── page.tsx        # CORS audit dashboard (issues table + handshake + pairs)
 ├── components/
@@ -117,7 +121,8 @@ har_analyzer/
 │   ├── headerDiff.ts       # Header/cookie diff engine: diffKvPairs, computeHeaderDiff
 │   ├── perfStats.ts        # Performance helpers: percentiles, timing avgs, histogram, regressions, content-type Δ
 │   ├── perfFormat.ts       # Δ formatters: formatDelta, formatPctChange, deltaTone
-│   └── corsAnalysis.ts     # CORS audit: cross-origin / preflight detection, preflight pairing, 9 finding kinds
+│   ├── corsAnalysis.ts     # CORS audit: cross-origin / preflight detection, preflight pairing, 9 finding kinds
+│   └── kvSearch.ts         # Header/cookie search engine: compileMatcher, searchEntries, scope URL helpers
 └── sample-hars/            # Sample HAR files for testing
     ├── sample-a.har
     ├── sample-b.har
