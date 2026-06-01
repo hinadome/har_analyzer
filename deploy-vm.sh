@@ -3,7 +3,7 @@
 # Usage: bash deploy-vm.sh [--update]
 #
 # Prerequisites: run as a user with sudo privileges
-# First-time: installs Node.js 20, PM2, clones repo, builds, starts service
+# First-time: installs Node.js 22, PM2, clones repo, builds, starts service
 # --update:    pulls latest code, rebuilds, and restarts service
 
 set -euo pipefail
@@ -11,7 +11,10 @@ set -euo pipefail
 REPO_URL="https://github.com/hinadome/har_analyzer.git"
 APP_DIR="$HOME/har_analyzer"
 APP_NAME="har-analyzer"
-NODE_VERSION="20"
+# Node.js 22 (Maintenance LTS until 2027-04-30). Node 20 reached EOL on
+# 2026-04-30; Next.js 16 itself only requires >= 20.9, but we track an
+# actively-supported LTS line.
+NODE_VERSION="22"
 PORT=3000
 
 GREEN='\033[0;32m'

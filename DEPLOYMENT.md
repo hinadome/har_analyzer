@@ -56,7 +56,7 @@ docker compose up -d
 ### Prerequisites
 
 - Ubuntu 22.04+ or Debian 11+ VM
-- Node.js 20 (installed automatically by the script)
+- Node.js 22 (installed automatically by the script)
 - User with `sudo` privileges
 - Outbound internet access (to install Node.js and clone the repo)
 
@@ -70,7 +70,7 @@ bash deploy-vm.sh
 
 The script:
 
-1. Installs Node.js 20 via NodeSource (Next.js 16 requires ≥ 20.9)
+1. Installs Node.js 22 via NodeSource (Maintenance LTS until 2027-04-30; Node.js 20 reached End-of-Life on 2026-04-30. Next.js 16 itself only requires ≥ 20.9, but we track an actively-supported LTS line.)
 2. Installs PM2 globally
 3. Clones `https://github.com/hinadome/har_analyzer.git` to `~/har_analyzer`
 4. Runs `npm ci && npm run build`, then prunes devDependencies
