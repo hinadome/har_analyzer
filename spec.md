@@ -445,6 +445,7 @@ Findings carry an optional `detail: { sent?, expected?, received? }` triplet tha
 
 - Home page (`app/page.tsx`) — when `analyzeStore(...).crossOriginCount > 0`, a **CORS Audit** pill appears in the Comparison Summary button group. When `errorCount > 0`, the pill carries a small red badge with the error count.
 - Per-file page (`app/file/[index]/page.tsx`) — when the file has at least one cross-origin request, a **CORS Audit →** link appears next to the file index, deep-linking to `/cors?file={index}`.
+- Outbound to `/entry/[file]/[index]` — the issues table URL cell wraps in a `<Link>` (with `stopPropagation` so it doesn't toggle the row's expand), the handshake panel renders an **Open entry detail →** affordance above the request / response grid, and each preflight-pairs `PairRowLine` URL becomes a link (OPTIONS row always, Actual row only when `pair.actual !== null`). All three resolve via `CorsEntry.fileIndex` + `CorsEntry.entryIndex` already carried on the audit data.
 
 ### 4.13 Header & Cookie Search page (`/kv-search`)
 
@@ -551,6 +552,7 @@ Backed by the pure helpers in `utils/entryStats.ts`:
 - Per-file page (`app/file/[index]/page.tsx`) — the main paginated entry list's URL cell links to `/entry/{harFileIndex}/{indexInFile}` (the top-10 slowest/largest summary tables keep their `/compare?url=…` cross-file link).
 - `/compare` (`app/compare/page.tsx`) — every expanded per-entry header row carries a `Detail →` link to `/entry/{harFileIndex}/{indexInFile}` (uses `stopPropagation` so it doesn't toggle the expand panel).
 - `/kv-search` (`app/kv-search/page.tsx`) — the full URL inside the expanded panel deep-links to `/entry/{harFileIndex}/{indexInFile}` (see §4.13).
+- `/cors` (`app/cors/page.tsx`) — issues table URL cell, handshake panel **Open entry detail →** affordance, and preflight-pair URL rows all deep-link to `/entry/{fileIndex}/{entryIndex}` (see §4.12).
 
 ---
 

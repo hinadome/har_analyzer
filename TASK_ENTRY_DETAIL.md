@@ -200,6 +200,13 @@ fileIndex, entry)` for the reverse lookup used by discovery links.
         demand) alongside the existing routes; static pages
         generated successfully.
 
+- [x] **Phase 9 — `/cors` → `/entry` deep links**
+  - [x] **9a — Issues table URL cell.** In `IssueRowView` (`app/cors/page.tsx`), the URL `<td>` now wraps `{ent.url}` in a `<Link>` to `/entry/{entry.fileIndex}/{entry.entryIndex}` with `onClick={(e) => e.stopPropagation()}` so it doesn't toggle the row's expand. Styling mirrors the kv-search compact-row link (`text-blue-600 dark:text-blue-400 hover:underline`).
+  - [x] **9b — Handshake panel affordance.** `HandshakePanel` renders a small right-aligned **Open entry detail →** link above the request / response 2-column grid, pointing at `/entry/{entry.fileIndex}/{entry.entryIndex}`. No `stopPropagation` needed — the panel itself has no row click handler.
+  - [x] **9c — Preflight pair rows.** `PairRowLine` gained an optional `href` prop; when provided the URL cell renders as a `<Link>` instead of a `<span>`. `PairCard` passes `/entry/{pair.preflight.fileIndex}/{pair.preflight.entryIndex}` for the OPTIONS row unconditionally and the actual-side route only when `pair.actual !== null` (the unpaired branch keeps its red "no matching actual request" message).
+  - [x] **9d — Docs.** `spec.md` §4.12 extended with the three new outbound `/entry/…` Discovery links; §4.16 inbound list gained a `/cors` bullet. `CHANGELOG.md` `[0.1.4]/Added` Discovery-links block gained a third bullet enumerating the three /cors sites. This task tracker updated with the Phase 9 summary.
+  - [x] **9e — Verification.** `npx tsc --noEmit` clean; `npx vitest run` still 210 / 210; `npm run build` green (no route-table change expected).
+
 ## Out of scope (for this round)
 
 - WebSocket / SSE message rendering (HAR `_webSocketMessages` is not

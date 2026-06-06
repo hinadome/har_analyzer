@@ -12,6 +12,7 @@
 - **Discovery links** for the new entry page:
   - `app/file/[index]/page.tsx` — the main paginated entry-list URL cell is now a `<Link>` to `/entry/{harFileIndex}/{indexInFile}` (the top-10 slowest/largest summary tables keep their cross-file `/compare?url=…` link). `indexInFile` resolved via an in-component `Map<EntryRecord, number>`.
   - `app/compare/page.tsx` — every expanded per-entry header row in `PerFileRow` carries a `Detail →` link to `/entry/{harFileIndex}/{indexInFile}` with `stopPropagation` so it doesn't toggle the expand panel.
+  - `app/cors/page.tsx` — three new outbound deep links to `/entry/{fileIndex}/{entryIndex}`, all resolving via `CorsEntry.fileIndex` + `CorsEntry.entryIndex` already carried on the audit data: (1) the issues table URL cell in `IssueRowView` wraps in a `<Link>` (with `stopPropagation` so it doesn't toggle the row's expand), (2) `HandshakePanel` renders an **Open entry detail →** affordance in a right-aligned strip above the request / response grid, and (3) `PairRowLine` accepts an optional `href` prop and renders the URL cell as a `<Link>` when provided — `PairCard` passes the entry route for the OPTIONS row always and for the Actual row only when `pair.actual !== null`.
 - **Tests** — 23 new specs in `__tests__/entryStats.test.ts` covering all seven helpers (bounds checks, percentile-rank thresholds at P50/P95/P99 and median/P90, URL query parsing including empty/repeated/malformed inputs, header lookup case-insensitivity, throughput edge cases, and the keep-alive heuristic).
 
 ### Changed

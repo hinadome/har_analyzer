@@ -730,8 +730,15 @@ function IssueRowView({
             </span>
           )}
         </td>
-        <td className="px-3 py-2 align-top font-mono text-xs text-slate-700 dark:text-slate-300 break-all max-w-[480px]">
-          {ent.url}
+        <td className="px-3 py-2 align-top font-mono text-xs break-all max-w-[480px]">
+          <Link
+            href={`/entry/${entry.fileIndex}/${entry.entryIndex}`}
+            onClick={(e) => e.stopPropagation()}
+            title="Open entry detail"
+            className="text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            {ent.url}
+          </Link>
         </td>
         <td className="px-3 py-2 align-top tabular-nums text-xs text-slate-700 dark:text-slate-300">
           {formatTime(ent.time)}
@@ -775,6 +782,14 @@ function HandshakePanel({ entry }: { entry: CorsEntry }) {
   }));
   return (
     <div className="px-6 py-4 border-y border-slate-200 dark:border-slate-800 space-y-4">
+      <div className="flex justify-end">
+        <Link
+          href={`/entry/${entry.fileIndex}/${entry.entryIndex}`}
+          className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          Open entry detail →
+        </Link>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <HeaderColumn
           title="Request"
@@ -1012,8 +1027,9 @@ function PairCard({ row }: { row: PairRow }) {
         url={pre.url}
         time={pre.time}
         accent="border-blue-500 dark:border-blue-400"
+        href={`/entry/${pair.preflight.fileIndex}/${pair.preflight.entryIndex}`}
       />
-      {act ? (
+      {act && pair.actual ? (
         <PairRowLine
           label="Actual"
           method={act.method}
@@ -1021,6 +1037,7 @@ function PairCard({ row }: { row: PairRow }) {
           url={act.url}
           time={act.time}
           accent="border-emerald-500 dark:border-emerald-400"
+          href={`/entry/${pair.actual.fileIndex}/${pair.actual.entryIndex}`}
         />
       ) : (
         <div className="ml-4 pl-3 py-1 border-l-2 border-red-500 dark:border-red-400 text-xs text-red-700 dark:text-red-300">
@@ -1039,6 +1056,7 @@ function PairRowLine({
   url,
   time,
   accent,
+  href,
 }: {
   label: string;
   method: string;
@@ -1046,7 +1064,22 @@ function PairRowLine({
   url: string;
   time: number;
   accent: string;
+  /** When provided, the URL cell becomes a deep link to the entry detail page. */
+  href?: string;
 }) {
+  const urlCell = href ? (
+    <Link
+      href={href}
+      title="Open entry detail"
+      className="font-mono text-blue-600 dark:text-blue-400 hover:underline break-all flex-1"
+    >
+      {url}
+    </Link>
+  ) : (
+    <span className="font-mono text-slate-600 dark:text-slate-400 break-all flex-1">
+      {url}
+    </span>
+  );
   return (
     <div className={`ml-4 pl-3 py-1 border-l-2 ${accent}`}>
       <div className="flex items-center gap-2 text-xs">
@@ -1057,9 +1090,7 @@ function PairRowLine({
         <span className="font-mono text-slate-700 dark:text-slate-300">
           {method}
         </span>
-        <span className="font-mono text-slate-600 dark:text-slate-400 break-all flex-1">
-          {url}
-        </span>
+        {urlCell}
         <span className="tabular-nums text-slate-600 dark:text-slate-400">
           {formatTime(time)}
         </span>
