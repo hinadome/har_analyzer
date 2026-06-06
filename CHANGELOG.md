@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Single-entry detail page (`/entry/[file]/[index]`)** — deep-dive view for one specific HAR entry, identified by two zero-based dynamic segments (`[file]` = `harFileIndex`, `[index]` = position in that file's `analysis.entries`). No query-string state.
+  - Pure helpers in `utils/entryStats.ts`: `getEntryByPosition` (bounds-checked store → entry lookup), `compareEntryToFile` (ranks `time` against the file's P50/P95/P99 and `contentSize` against the median/P90 — emits `timeRank` ∈ {`faster-than-p50`, `between-p50-p95`, `slower-than-p95`, `slower-than-p99`} and `sizeRank` ∈ {`below-median`, `above-median`, `top-decile`}), `parseUrlQuery` (URL-decoded `{name,value}[]` parser), `findHeader` (case-insensitive lookup), `findIndexInFile` (back-link entry → array index), `throughputKBps`, `reusedConnection` (keep-alive heuristic — `true` when both `timings.dns` and `timings.connect` normalize to `0`, i.e. the browser's HAR `-1` "N/A" sentinel on both phases; `ssl` is intentionally excluded because TLS resumption varies independently of socket reuse).
+  - Page sections in order: title block (method · status badge · URL · file/index · UTC timestamp), summary card (time · size · content type · throughput · connection-reuse hint), performance card (stacked timing bar + phase grid + `Blocked` row + context strip ranking against the file with tinted chips driven by `timeRank` / `sizeRank` + derived hints), request card (Headers / Cookies / Query string with sortable a–z header table), response card (Headers / Cookies / `Set-Cookie (raw)` preserving `Path` / `HttpOnly` / `Max-Age` / `SameSite` attributes), content card (`<pre>` body capped at 50 000 chars with `Show full` ↔ `Show truncated` toggle and a copy-to-clipboard button on the full body; binary and no-body fallbacks via `isBinaryEntry`).
+  - Fallback matrix: loading state from `useHarStore`; "No HAR loaded" when the store is empty; "Entry not found" when segments are non-numeric / out of range; context strip hidden when the file has fewer than two entries.
+- **Shared timing-phase color/label module** — `components/timingPhases.ts` centralises the `TIMING_PHASES` constant (DNS · Connect · SSL · Send · TTFB · Receive with their Tailwind bar / dot / text utilities). `/compare`, `/performance`, `/performance/diff`, `/file/[index]`, and the new `/entry/[file]/[index]` now consume this single source instead of carrying three slightly-drifted copies.
+- **Discovery links** for the new entry page:
+  - `app/file/[index]/page.tsx` — the main paginated entry-list URL cell is now a `<Link>` to `/entry/{harFileIndex}/{indexInFile}` (the top-10 slowest/largest summary tables keep their cross-file `/compare?url=…` link). `indexInFile` resolved via an in-component `Map<EntryRecord, number>`.
+  - `app/compare/page.tsx` — every expanded per-entry header row in `PerFileRow` carries a `Detail →` link to `/entry/{harFileIndex}/{indexInFile}` with `stopPropagation` so it doesn't toggle the expand panel.
+- **Tests** — 23 new specs in `__tests__/entryStats.test.ts` covering all seven helpers (bounds checks, percentile-rank thresholds at P50/P95/P99 and median/P90, URL query parsing including empty/repeated/malformed inputs, header lookup case-insensitivity, throughput edge cases, and the keep-alive heuristic).
+
+### Changed
+
+- `/kv-search` expanded panel — the full URL anchor now deep-links to `/entry/<harFileIndex>/<indexInFile>` (was `/header-diff?url=<encoded>`) so the "drill deeper" hop lands on the specific matching entry rather than every entry sharing the URL. `indexInFile` is threaded from `ResultsTable` (already computed alongside `kvEntryId`) through `ResultRow` → `ExpandedPanel` as a new prop. The compact-row URL cell's `/compare?url=…` link is unchanged.
+
 ## [0.1.3]
 
 ### Added

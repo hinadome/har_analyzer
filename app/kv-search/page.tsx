@@ -758,6 +758,7 @@ function ResultsTable({
               <ResultRow
                 key={id}
                 hit={hit}
+                indexInFile={indexInFile}
                 expanded={expanded}
                 analyses={analyses}
                 onToggle={() => setQuery({ expand: expanded ? "" : id })}
@@ -788,12 +789,14 @@ function useMemoIndexed(analyses: HarAnalysis[]) {
 
 function ResultRow({
   hit,
+  indexInFile,
   expanded,
   analyses,
   onToggle,
   rowRef,
 }: {
   hit: KvSearchHit;
+  indexInFile: number;
   expanded: boolean;
   analyses: HarAnalysis[];
   onToggle: () => void;
@@ -873,7 +876,7 @@ function ResultRow({
       {expanded && (
         <tr className="border-t border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40">
           <td colSpan={7} className="px-3 py-3">
-            <ExpandedPanel hit={hit} />
+            <ExpandedPanel hit={hit} indexInFile={indexInFile} />
           </td>
         </tr>
       )}
@@ -881,13 +884,19 @@ function ResultRow({
   );
 }
 
-function ExpandedPanel({ hit }: { hit: KvSearchHit }) {
+function ExpandedPanel({
+  hit,
+  indexInFile,
+}: {
+  hit: KvSearchHit;
+  indexInFile: number;
+}) {
   return (
     <div className="space-y-2">
       <div className="text-xs text-slate-600 dark:text-slate-500 break-all">
         <span className="uppercase tracking-wider mr-2">URL</span>
         <Link
-          href={`/header-diff?url=${encodeURIComponent(hit.entry.url)}`}
+          href={`/entry/${hit.entry.harFileIndex}/${indexInFile}`}
           className="font-mono text-blue-600 dark:text-blue-400 hover:underline"
         >
           {hit.entry.url}

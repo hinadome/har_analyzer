@@ -18,6 +18,7 @@ A browser-based tool for uploading, analyzing, and comparing multiple HAR (HTTP 
 - **Header Diff page** — same URL search and entry selection as Content Diff, but diffs request headers, response headers, request cookies, and response cookies between two entries — showing added, removed, changed, and equal key-value pairs in a color-coded table
 - **Header & Cookie Search page** (`/kv-search`) — free-text search over every header and cookie carried by the loaded HARs. Three needles (Name / Value / URL contains) with `contains` / `exact` / `regex` modes, case-sensitive toggle, four scope chips (req header / res header / req cookie / res cookie), and a file scope. Same-pair AND semantics; results table with click-to-expand highlighted match spans; the URL cell deep-links to `/compare`, and the expanded full URL deep-links to `/header-diff`
 - **CORS Audit page** (`/cors`) — automated review of every cross-origin request in the loaded HARs. Detects nine finding kinds (failed/slow preflights, missing or mismatched `Access-Control-Allow-Origin`, wildcard ACAO with credentials, disallowed method, disallowed request header, missing `Access-Control-Allow-Credentials` flag, blocked actual request). KPI cards summarize totals, failed/slow preflights, and cross-origin counts; the issues table is filterable by file, severity, and Origin; clicking any row reveals a side-by-side request/response handshake panel with each finding's sent / expected / received triplet. A collapsible "Preflight pairs" section chains every OPTIONS request to its matching actual request within a 5 s window with a single-pill verdict per pair
+- **Single-entry detail page** (`/entry/[file]/[index]`) — deep dive into one specific request: title block with method / status / URL; performance card with stacked timing bar, phase grid, and a context strip ranking this entry's time and content size against the file's P50 / P95 / P99 and size distribution; Request, Response, and Content cards exposing headers (sortable a–z), parsed cookies, parsed query string, raw `Set-Cookie` values, and the response body (capped at 50 000 chars with "Show full" toggle + copy-to-clipboard; binary and no-body fallbacks). Linked from the per-file entry list URL cell, the `/compare` per-entry expand-panel header, and the `/kv-search` expanded panel
 - All data processed entirely in the browser — no server required
 - Persistent state via `IndexedDB` across page refreshes to bypass typical browser quota limits
 
@@ -52,8 +53,9 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 8. **Diff response bodies** — click "Content Diff" on the compare page (or navigate to `/content-diff`) to search for a URL and compare the response body of any two entries side by side. Toggle "Ignore query string" to group requests to the same endpoint regardless of query params. Click any URL in the entry table to jump to the compare page for that request.
 9. **Diff headers and cookies** — click "Header Diff" on the compare page (or navigate to `/header-diff`) to compare request/response headers and cookies between any two entries. Color-coded rows show exactly which headers were added, removed, or changed.
 10. **Audit CORS** — when at least one cross-origin request is captured, click "CORS Audit" on the home page (or the per-file CORS Audit → link in `/file/[index]`) to open `/cors`. Filter by file scope, severity, or request Origin; click a finding to expand the handshake panel; or open the Preflight pairs section to see each OPTIONS request chained with its actual follow-up request.
-11. **Search headers and cookies** — click "Search Headers/Cookies" on the home page (or the per-file link in `/file/[index]`, or any header name in the `/cors` handshake panel) to open `/kv-search`. Enter a name, value, or URL fragment; pick a mode and scope; click any result row to expand the matching pair(s) with the matched substrings highlighted.
-12. **Remove or clear files** — click the × on a file chip to remove it, or use "Clear all" in the header to reset.
+11. **Search headers and cookies** — click "Search Headers/Cookies" on the home page (or the per-file link in `/file/[index]`, or any header name in the `/cors` handshake panel) to open `/kv-search`. Enter a name, value, or URL fragment; pick a mode and scope; click any result row to expand the matching pair(s) with the matched substrings highlighted. The expanded URL line deep-links straight to the single-entry detail page for that hit.
+12. **Inspect a single request in depth** — click any URL in the per-file entry list, the "Detail →" link in `/compare`'s expand panel, or the expanded URL in a `/kv-search` result to open `/entry/[file]/[index]`. The page contrasts this entry's time and size against the file's P50/P95/P99, shows the full timing phase grid, and lets you browse headers/cookies/query string/response body in one place.
+13. **Remove or clear files** — click the × on a file chip to remove it, or use "Clear all" in the header to reset.
 
 ### Understanding timing data
 
@@ -71,6 +73,15 @@ HAR files record per-request timing phases from `entry.timings`. The app display
 Phases the browser marks as "not applicable" (`-1` in the HAR spec) are shown as 0 ms. The `blocked` phase (connection queuing time) is stored but excluded from the visual breakdowns; this means the bar total may be slightly less than the displayed total request time.
 
 The **file performance page** shows _averages_ of these phases across all requests in a file. The **compare page Timing tab** shows the breakdown for one individual request.
+
+#### Reused vs. new connection
+
+The single-entry detail page (`/entry/[file]/[index]`) tags every request with a green **Reused connection** or slate **New connection** chip in the Performance card. The decision is made by `reusedConnection(timings)` in `utils/entryStats.ts`:
+
+- **Reused connection** — both `dns` and `connect` normalize to `0` (HAR records `-1` for "phase did not apply", which `normalizeTiming` clamps to `0` along with `undefined` / negative / zero values). In a HAR, the browser only fills in DNS lookup and TCP handshake times on the request that opened the socket; every subsequent request multiplexing over an HTTP/2 stream or piggy-backing on an HTTP/1.1 keep-alive socket records both as `-1`.
+- **New connection** — either `dns` or `connect` (or both) carries a positive value, meaning at least one of DNS resolution or the TCP handshake actually happened for this request.
+
+`ssl` is deliberately **not** part of the check. TLS resumption (session tickets / 0-RTT) can vary independently of socket reuse, and the chip is only intended to flag "this request skipped DNS + TCP" — the strongest signal that an existing socket was reused. This matches the conflation Chrome DevTools itself applies in its waterfall view.
 
 ### How to export a HAR file from your browser
 
@@ -103,15 +114,20 @@ har_analyzer/
 │   │   └── page.tsx        # Header/cookie diff page
 │   ├── kv-search/
 │   │   └── page.tsx        # Header & cookie search across all loaded files
-│   └── cors/
-│       └── page.tsx        # CORS audit dashboard (issues table + handshake + pairs)
+│   ├── cors/
+│   │   └── page.tsx        # CORS audit dashboard (issues table + handshake + pairs)
+│   └── entry/
+│       └── [file]/
+│           └── [index]/
+│               └── page.tsx # Single-entry detail page (perf ranking + request/response/content)
 ├── components/
 │   ├── FileUpload.tsx          # Drag-and-drop file upload zone
 │   ├── ComparisonTable.tsx     # Cross-file comparison table
 │   ├── StatusBadge.tsx         # Reusable status code color badge
 │   ├── UnifiedDiffView.tsx     # Single-panel diff renderer
 │   ├── SideBySideDiffView.tsx  # Two-column diff renderer
-│   └── HeaderDiffView.tsx      # Key-value header/cookie diff renderer
+│   ├── HeaderDiffView.tsx      # Key-value header/cookie diff renderer
+│   └── timingPhases.ts         # Shared TIMING_PHASES color/label table reused by every timing bar
 ├── types/
 │   └── har.ts              # HAR format and analysis TypeScript types
 ├── utils/
@@ -122,7 +138,8 @@ har_analyzer/
 │   ├── perfStats.ts        # Performance helpers: percentiles, timing avgs, histogram, regressions, content-type Δ
 │   ├── perfFormat.ts       # Δ formatters: formatDelta, formatPctChange, deltaTone
 │   ├── corsAnalysis.ts     # CORS audit: cross-origin / preflight detection, preflight pairing, 9 finding kinds
-│   └── kvSearch.ts         # Header/cookie search engine: compileMatcher, searchEntries, scope URL helpers
+│   ├── kvSearch.ts         # Header/cookie search engine: compileMatcher, searchEntries, scope URL helpers
+│   └── entryStats.ts       # Single-entry lookup + file-relative ranking (compareEntryToFile, parseUrlQuery, …)
 └── sample-hars/            # Sample HAR files for testing
     ├── sample-a.har
     ├── sample-b.har

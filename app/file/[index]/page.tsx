@@ -11,6 +11,7 @@ import { computePerfStats, computeTimingAvgs } from "@/utils/perfStats";
 import { isCrossOrigin } from "@/utils/corsAnalysis";
 import StatusBadge from "@/components/StatusBadge";
 import { statusColorClass } from "@/components/StatusBadge";
+import { TIMING_PHASES } from "@/components/timingPhases";
 
 type SortField =
   | "startedDateTime"
@@ -102,6 +103,13 @@ function FileDetailPageContent() {
   const perfStats = useMemo(() => {
     if (!analysis || !analysis.entries.length) return null;
     return computePerfStats(analysis.entries);
+  }, [analysis]);
+
+  const entryIndexMap = useMemo(() => {
+    const map = new Map<EntryRecord, number>();
+    if (!analysis) return map;
+    analysis.entries.forEach((e, i) => map.set(e, i));
+    return map;
   }, [analysis]);
 
   const slowest = useMemo(() => {
@@ -564,36 +572,7 @@ function FileDetailPageContent() {
               {/* Stacked bar */}
               <div>
                 <div className="flex h-5 rounded-lg overflow-hidden gap-px">
-                  {(
-                    [
-                      {
-                        key: "dns",
-                        label: "DNS",
-                        color: "bg-blue-600 dark:bg-blue-500",
-                      },
-                      {
-                        key: "connect",
-                        label: "Connect",
-                        color: "bg-green-600 dark:bg-green-500",
-                      },
-                      {
-                        key: "ssl",
-                        label: "SSL",
-                        color: "bg-purple-600 dark:bg-purple-500",
-                      },
-                      { key: "send", label: "Send", color: "bg-slate-400" },
-                      {
-                        key: "wait",
-                        label: "TTFB",
-                        color: "bg-amber-600 dark:bg-amber-500",
-                      },
-                      {
-                        key: "receive",
-                        label: "Receive",
-                        color: "bg-cyan-600 dark:bg-cyan-500",
-                      },
-                    ] as const
-                  ).map(({ key, label, color }) => {
+                  {TIMING_PHASES.map(({ key, label, bar }) => {
                     const val = timingAvgs.avgs[key];
                     const pct =
                       timingAvgs.total > 0 ? (val / timingAvgs.total) * 100 : 0;
@@ -601,7 +580,7 @@ function FileDetailPageContent() {
                     return (
                       <div
                         key={key}
-                        className={`${color} transition-all`}
+                        className={`${bar} transition-all`}
                         style={{ width: `${pct}%` }}
                         title={`${label}: ${formatTime(val)} (${pct.toFixed(1)}%)`}
                       />
@@ -611,46 +590,7 @@ function FileDetailPageContent() {
               </div>
               {/* Legend + values */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {(
-                  [
-                    {
-                      key: "dns",
-                      label: "DNS",
-                      color: "text-blue-600 dark:text-blue-400",
-                      dot: "bg-blue-600 dark:bg-blue-500",
-                    },
-                    {
-                      key: "connect",
-                      label: "Connect",
-                      color: "text-green-600 dark:text-green-400",
-                      dot: "bg-green-600 dark:bg-green-500",
-                    },
-                    {
-                      key: "ssl",
-                      label: "SSL",
-                      color: "text-purple-600 dark:text-purple-400",
-                      dot: "bg-purple-600 dark:bg-purple-500",
-                    },
-                    {
-                      key: "send",
-                      label: "Send",
-                      color: "text-slate-700 dark:text-slate-300",
-                      dot: "bg-slate-400",
-                    },
-                    {
-                      key: "wait",
-                      label: "TTFB",
-                      color: "text-amber-600 dark:text-amber-400",
-                      dot: "bg-amber-600 dark:bg-amber-500",
-                    },
-                    {
-                      key: "receive",
-                      label: "Receive",
-                      color: "text-cyan-600 dark:text-cyan-400",
-                      dot: "bg-cyan-600 dark:bg-cyan-500",
-                    },
-                  ] as const
-                ).map(({ key, label, color, dot }) => {
+                {TIMING_PHASES.map(({ key, label, text, dot }) => {
                   const val = timingAvgs.avgs[key];
                   const pct =
                     timingAvgs.total > 0 ? (val / timingAvgs.total) * 100 : 0;
@@ -664,7 +604,7 @@ function FileDetailPageContent() {
                           {label}
                         </p>
                         <p
-                          className={`text-sm font-mono font-semibold ${color}`}
+                          className={`text-sm font-mono font-semibold ${text}`}
                         >
                           {formatTime(val)}
                         </p>
@@ -770,7 +710,7 @@ function FileDetailPageContent() {
                     </td>
                     <td className="py-2.5 px-4 text-sm max-w-xs">
                       <Link
-                        href={`/compare?url=${encodeURIComponent(e.url)}`}
+                        href={`/entry/${e.harFileIndex}/${entryIndexMap.get(e) ?? 0}`}
                         className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300 hover:underline font-mono text-xs break-all"
                         title={e.url}
                       >

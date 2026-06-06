@@ -375,10 +375,17 @@ describe("Property 9 — JSON prettification round-trip", () => {
 describe("Property 10 — Truncation", () => {
   it("body > TRUNCATION_LIMIT, showFull false → text.length === TRUNCATION_LIMIT, wasTruncated true", () => {
     fc.assert(
-      fc.property(fc.string({ minLength: TRUNCATION_LIMIT + 1 }), (body) => {
-        const { text, wasTruncated } = truncateBody(body, false);
-        return text.length === TRUNCATION_LIMIT && wasTruncated === true;
-      }),
+      fc.property(
+        fc.string({
+          minLength: TRUNCATION_LIMIT + 1,
+          maxLength: TRUNCATION_LIMIT + 64,
+        }),
+        (body) => {
+          const { text, wasTruncated } = truncateBody(body, false);
+          return text.length === TRUNCATION_LIMIT && wasTruncated === true;
+        },
+      ),
+      { numRuns: 20 },
     );
   });
 

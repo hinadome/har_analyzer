@@ -19,49 +19,11 @@ import {
   type HistogramResult,
 } from "@/utils/perfStats";
 import type { HarAnalysis, EntryRecord } from "@/types/har";
+import { TIMING_PHASES } from "@/components/timingPhases";
 
 // ---------------------------------------------------------------------------
 // Constants — color palette mirrors components/ComparisonTable + /compare
 // ---------------------------------------------------------------------------
-
-const TIMING_PHASES = [
-  {
-    key: "dns",
-    label: "DNS",
-    color: "bg-blue-600 dark:bg-blue-500",
-    text: "text-blue-600 dark:text-blue-400",
-  },
-  {
-    key: "connect",
-    label: "Connect",
-    color: "bg-green-600 dark:bg-green-500",
-    text: "text-green-600 dark:text-green-400",
-  },
-  {
-    key: "ssl",
-    label: "SSL",
-    color: "bg-purple-600 dark:bg-purple-500",
-    text: "text-purple-600 dark:text-purple-400",
-  },
-  {
-    key: "send",
-    label: "Send",
-    color: "bg-slate-400",
-    text: "text-slate-700 dark:text-slate-300",
-  },
-  {
-    key: "wait",
-    label: "TTFB",
-    color: "bg-amber-600 dark:bg-amber-500",
-    text: "text-amber-600 dark:text-amber-400",
-  },
-  {
-    key: "receive",
-    label: "Receive",
-    color: "bg-cyan-600 dark:bg-cyan-500",
-    text: "text-cyan-600 dark:text-cyan-400",
-  },
-] as const;
 
 // 10 distinguishable Tailwind hues, cycled when more files are loaded.
 const FILE_COLORS = [
@@ -435,7 +397,7 @@ function TimingPhaseComparison({ analyses }: { analyses: HarAnalysis[] }) {
         <div className="flex flex-wrap gap-x-5 gap-y-2 pt-2 border-t border-slate-200 dark:border-slate-700/50">
           {TIMING_PHASES.map((p) => (
             <span key={p.key} className="flex items-center gap-1.5 text-xs">
-              <span className={`w-2.5 h-2.5 rounded-sm ${p.color}`} />
+              <span className={`w-2.5 h-2.5 rounded-sm ${p.bar}`} />
               <span className={p.text}>{p.label}</span>
             </span>
           ))}
@@ -479,7 +441,7 @@ function TimingPhaseRow({
           return (
             <div
               key={p.key}
-              className={p.color}
+              className={p.bar}
               style={{ width: `${pct}%` }}
               title={`${p.label}: ${formatTime(val)} (${pct.toFixed(1)}%)`}
             />

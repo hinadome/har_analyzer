@@ -491,7 +491,7 @@ Defaults are normalised out of the URL when serialised (e.g. all four scope toke
 | Search bar     | `Name` + `Value` text inputs and a full-width `URL contains` input (all three debounced 150 ms). Four scope chips with `aria-pressed` colored by location (req-header blue, res-header indigo, req-cookie amber, res-cookie pink). Mode `<select>` (Contains / Exact / Regex). Case-sensitive checkbox. File `<select>` shown when ≥ 2 files loaded.                                                                                                                                                    |
 | Summary line   | `<totalHits> entries matched · <totalMatches> kv matches <scope label>` plus a per-location chip breakdown of the matched-pair counts.                                                                                                                                                                                                                                                                                                                                                                  |
 | Results table  | One row per matching entry. Columns: ▸ (expand) · File · Method · Status · URL · # matches · Timestamp (UTC). Row click toggles `?expand=<entryId>`. The URL cell renders the entry's pathname as a deep link to `/compare?url=<entry.url>` — the per-URL summary page — with `stopPropagation` so the link navigates without toggling the row. The Timestamp column formats `entry.startedDateTime` via `toLocaleString('en-US', { timeZone: 'UTC' }) + ' UTC'`, matching `/header-diff`'s entry list. |
-| Expanded panel | Inline expansion below the clicked row: full URL (also a deep link to `/header-diff?url=<entry.url>`) plus a list of every matching kv pair. Each item carries a colored location chip + name + `:` + value, with matched spans wrapped in `<mark>`.                                                                                                                                                                                                                                                    |
+| Expanded panel | Inline expansion below the clicked row: full URL (a deep link to `/entry/<harFileIndex>/<indexInFile>`, threaded down from `ResultsTable` so the link points at the specific hit rather than every entry sharing the URL) plus a list of every matching kv pair. Each item carries a colored location chip + name + `:` + value, with matched spans wrapped in `<mark>`.                                                                                                                                |
 
 **Discovery links:**
 
@@ -510,6 +510,47 @@ Defaults are normalised out of the URL when serialised (e.g. all four scope toke
 - Flat entry tables (status and content type views) are paginated at 50 rows per page.
 - Previous / Next controls and a "current / total" indicator are shown when more than one page exists.
 - Page resets to 1 when the search query changes.
+
+### 4.16 Single-entry detail page (`/entry/[file]/[index]`)
+
+Deep-dive view for a specific HAR entry, identified by two zero-based dynamic segments: `[file]` = `harFileIndex` (which loaded HAR), `[index]` = position inside that file's `analysis.entries` array. No query-string state — the URL segments fully identify the entry.
+
+Backed by the pure helpers in `utils/entryStats.ts`:
+
+- `getEntryByPosition(store, fileIndex, indexInFile)` — bounds-checked store → `EntryRecord` lookup; returns `null` on out-of-range / missing store.
+- `compareEntryToFile(entry, file)` — ranks an entry against the rest of its file: `samples`, `p50` / `p95` / `p99` time, `medianSize`, `p90Size`, `timeRank` (`faster-than-p50` / `between-p50-p95` / `slower-than-p95` / `slower-than-p99`), and `sizeRank` (`below-median` / `above-median` / `top-decile`).
+- `parseUrlQuery(url)` — splits a URL into `{ name, value }[]` query pairs (URL-decoded, preserves repeats, tolerates malformed inputs).
+- `findHeader(headers, name)` — case-insensitive header lookup.
+- `findIndexInFile(analysis, entry)` — back-link from an `EntryRecord` reference to its `analysis.entries` index.
+- `throughputKBps(entry)` — `contentSize / time` expressed in KB/s when both are non-zero, else `null`.
+- `reusedConnection(timings)` — `true` when **both** `normalizeTiming(timings.dns)` and `normalizeTiming(timings.connect)` collapse to `0` (HAR's `-1` "N/A" sentinel and any non-positive value normalize to `0`). `ssl` is intentionally excluded because TLS resumption (session tickets / 0-RTT) varies independently of socket reuse; the chip is a strict "this request skipped DNS + TCP" signal, matching Chrome DevTools' waterfall conflation.
+
+**Sections (in order):**
+
+| Section          | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Title block      | Method · `StatusBadge` · full URL · originating file name + index · started timestamp (UTC).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Summary card     | KPI strip: total time · content size · content type · transferred bytes · throughput (when computable) · connection-reuse hint.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Performance card | Stacked timing bar reusing `components/timingPhases.ts`. Phase grid showing each phase ms + share-of-total. `Blocked` row when present. **Context strip** that places this entry's `time` and `contentSize` against the file's P50 / P95 / P99 time and median / P90 size, with tinted chips driven by `timeRank` / `sizeRank` (`faster-than-p50` green → `slower-than-p99` red). A **HintsRow** of always-rendered chips: green `Reused connection` vs. slate `New connection` (driven by `reusedConnection(timings)` — see helper definition above), `<KB/s>` throughput (when `throughputKBps` is non-null), `Cache-Control: <value>` (when the response header is present), and `X-From-Cache: <value>` (when the proxy/SW header is present). |
+| Request card     | Three subsections (Headers · Cookies · Query string). Headers table sortable a–z (column header toggle: HAR order ↔ case-insensitive a–z). Cookies and query string share the same `CookieTable` component.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Response card    | Headers + Cookies subsections plus a `Set-Cookie (raw)` subsection that lists original response-header values verbatim when the entry sets cookies — preserves `Path` / `HttpOnly` / `Max-Age` / `SameSite` attributes the parsed list strips.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Content card     | `<pre>` rendering of `responseContent` capped at 50 000 chars. Binary content (via `isBinaryEntry`) and empty-body cases fall back to an italic placeholder. When the body exceeds the cap, a `Show full` ↔ `Show truncated` toggle is exposed. A `CopyButton` uses `navigator.clipboard.writeText` on the **full** body (silently no-ops on insecure contexts).                                                                                                                                                                                                                                                                                                                                                                                   |
+
+**Fallback matrix:**
+
+| Condition                                               | Behavior                                                                                                          |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Store still loading                                     | Loading state from `useHarStore`.                                                                                 |
+| Store empty or `analyses.length === 0`                  | `NotFound` shell with "No HAR loaded" message + link back to `/`.                                                 |
+| `fileIndex` or `indexInFile` non-numeric / out-of-range | `getEntryByPosition` returns `null` → `NotFound` shell with "Entry not found".                                    |
+| `analysis.entries.length < 2`                           | Performance card omits the context strip (no sample population to compare against) and shows the bar / grid only. |
+| Binary / no-body                                        | Content card replaces `<pre>` with the italic placeholder ("Binary content — body not displayed" / "No body").    |
+
+**Discovery links:**
+
+- Per-file page (`app/file/[index]/page.tsx`) — the main paginated entry list's URL cell links to `/entry/{harFileIndex}/{indexInFile}` (the top-10 slowest/largest summary tables keep their `/compare?url=…` cross-file link).
+- `/compare` (`app/compare/page.tsx`) — every expanded per-entry header row carries a `Detail →` link to `/entry/{harFileIndex}/{indexInFile}` (uses `stopPropagation` so it doesn't toggle the expand panel).
+- `/kv-search` (`app/kv-search/page.tsx`) — the full URL inside the expanded panel deep-links to `/entry/{harFileIndex}/{indexInFile}` (see §4.13).
 
 ---
 
@@ -552,11 +593,18 @@ Browser FileReader API
        │                            → IssuesTable + HandshakePanel
        │                            + PreflightPairsSection
        │
-       └── KV Search page         — EntryRecord[] (scoped by `?file=`)
-                                    → compileMatcher(name|value, mode, cs)
-                                    → searchEntries() → KvSearchOutcome
-                                    → ResultsTable + ExpandedPanel
-                                    (each KvMatch carries highlight ranges)
+       ├── KV Search page         — EntryRecord[] (scoped by `?file=`)
+       │                            → compileMatcher(name|value, mode, cs)
+       │                            → searchEntries() → KvSearchOutcome
+       │                            → ResultsTable + ExpandedPanel
+       │                            (each KvMatch carries highlight ranges)
+       │
+       └── Entry detail page      — getEntryByPosition(store, fileIndex, indexInFile)
+                                    → EntryRecord
+                                    → compareEntryToFile(entry, file)
+                                    → SummaryCard + PerformanceCard
+                                    + RequestCard + ResponseCard + ContentCard
+                                    (parseUrlQuery, isBinaryEntry, truncateBody)
 ```
 
 ---
