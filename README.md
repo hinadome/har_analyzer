@@ -5,8 +5,8 @@ A browser-based tool for uploading, analyzing, and comparing multiple HAR (HTTP 
 ## Features
 
 - Upload multiple `.har` files via drag-and-drop or file browser
-- Comparison table showing request counts, status codes, unique URLs, content types, content size totals, and content size distribution per file
-- Clickable status codes, URLs, content types, and content size ranges that link to detailed breakdowns
+- Comparison table showing request counts, status codes, HTTP methods, unique URLs, content types, content size totals, and content size distribution per file
+- Clickable status codes, HTTP methods, URLs, content types, and content size ranges that link to detailed breakdowns
 - Details pages with sortable, filterable, paginated entry tables
 - URL details grouped by endpoint with per-file hit counts and expandable rows
 - Per-file performance dashboard: P50/P95/P99 response times, slowest requests, largest resources, and avg timing breakdown (DNS → Connect → SSL → Send → TTFB → Receive)
@@ -44,8 +44,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## Usage
 
 1. **Upload HAR files** — drag one or more `.har` files onto the upload zone, or click to open the file picker. Files can be added incrementally.
-2. **Review the comparison table** — see total requests, unique URL counts, per-status-code counts, per-content-type counts, total response size, and content size distribution buckets for each file in a single table.
-3. **Drill into details** — click any status code, the "Unique URLs" row, any content type label, or any content size range to open a details page filtered to that dimension.
+2. **Review the comparison table** — see total requests, unique URL counts, per-status-code counts, per-HTTP-method counts, per-content-type counts, total response size, and content size distribution buckets for each file in a single table.
+3. **Drill into details** — click any status code, the "Unique URLs" row, any HTTP method, any content type label, or any content size range to open a details page filtered to that dimension.
 4. **Inspect per-file performance** — click a file name chip or the file detail link to see P50/P95/P99 latency, slowest requests, largest resources, and an average timing breakdown across all requests.
 5. **See the cross-file performance overview** — click "Performance Dashboard" on the home page to open `/performance`, which lays every loaded file out side by side: KPI matrix, timing-phase comparison, shared-axis distribution histogram, per-content-type table, and combined Slowest/Largest top lists.
 6. **Compare two specific runs head-to-head** — when at least two files are loaded, click "Compare two runs →" (visible on the home page and on the performance dashboard) to open `/performance/diff`. Pick a baseline and compare file, toggle Path / Full URL matching, and review headline KPI Δs, per-phase timing Δs, an overlaid histogram, per-content-type Δs, biggest movers, regressions/improvements, and unique-URL listings.

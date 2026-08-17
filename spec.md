@@ -94,6 +94,7 @@ Optional phases report `-1` to indicate "not applicable" (e.g. `dns` and `connec
 - `totalRequests` — total entry count
 - `totalContentSize` — sum of `entry.response.content.size` across all entries (bytes)
 - `statusCodeCounts` — map of `{ statusCode: count }`
+- `methodCounts` — map of `{ uppercaseMethod: count }`; missing / empty `request.method` is bucketed as `(no method)`
 - `contentTypeCounts` — map of `{ normalizedMimeType: count }`
 - `contentSizeBucketCounts` — map of `{ bucketLabel: count }` using five ranges: `0 B – 1 KB`, `1 KB – 10 KB`, `10 KB – 100 KB`, `100 KB – 1 MB`, `1 MB+`
 - `uniqueUrlCount` — count of distinct URL strings
@@ -107,7 +108,7 @@ Displayed after at least one file is loaded.
 ### 3.1 Structure
 
 - One column per loaded HAR file, with the file name as the column header (truncated with a tooltip if long).
-- Rows grouped into four sections: totals, status codes, content types, and content size.
+- Rows grouped into five sections: totals, status codes, HTTP methods, content types, and content size. (Server IPs render as an additional section below when present.)
 
 ### 3.2 Rows
 
@@ -116,13 +117,14 @@ Displayed after at least one file is loaded.
 | Total Requests                                                                             | Integer count per file             | No                                                               |
 | Unique URLs                                                                                | Integer count per file             | Yes — links to `/details?type=url`                               |
 | _[status code]_ (one row per unique code across all files)                                 | Count per file, `—` if absent      | Yes — links to `/details?type=status&value={code}`               |
+| _[HTTP method]_ (one row per unique method across all files, canonical order then alpha)   | Count per file, `—` if absent      | Yes — links to `/details?type=method&value={encoded}`            |
 | _[content type]_ (one row per unique type across all files)                                | Count per file, `—` if absent      | Yes — links to `/details?type=contentType&value={encoded}`       |
 | Total Response Size                                                                        | Human-readable byte total per file | No                                                               |
 | _[size bucket]_ (`0 B – 1 KB`, `1 KB – 10 KB`, `10 KB – 100 KB`, `100 KB – 1 MB`, `1 MB+`) | Count per file, `—` if absent      | Yes — links to `/details?type=contentSizeBucket&value={encoded}` |
 
 ### 3.3 Section headers
 
-- "Status Codes", "Content Types", and "Content Size" section headers span all columns and visually separate the groups.
+- "Status Codes", "HTTP Methods", "Content Types", and "Content Size" section headers span all columns and visually separate the groups. Methods are sorted in canonical order (`GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, CONNECT, TRACE`) followed by any non-canonical methods alphabetically, with `(no method)` pinned to the end of the section when present.
 
 ### 3.4 Status code color coding (row labels)
 
@@ -140,10 +142,10 @@ Displayed after at least one file is loaded.
 
 All detail views live at `/details` and are distinguished by query parameters:
 
-| Parameter | Values                                                                                                                                               |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `type`    | `status` \| `url` \| `contentType` \| `contentSizeBucket` \| `serverIPAddress` \| `userAgent`                                                        |
-| `value`   | Status code integer, URL-encoded content type string, URL-encoded size bucket label, server IP address, or user agent string; omitted for `type=url` |
+| Parameter | Values                                                                                                                                                                        |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`    | `status` \| `url` \| `contentType` \| `contentSizeBucket` \| `serverIPAddress` \| `userAgent` \| `method`                                                                     |
+| `value`   | Status code integer, URL-encoded content type string, URL-encoded size bucket label, server IP address, user agent string, or URL-encoded HTTP method; omitted for `type=url` |
 
 ### 4.1 Common elements
 
@@ -211,6 +213,10 @@ Same table structure as status code detail, filtered to entries whose `serverIPA
 ### 4.5b User agent detail (`type=userAgent`)
 
 Same table structure as status code detail, filtered to entries whose `User-Agent` request header matches `value` exactly.
+
+### 4.5c HTTP method detail (`type=method`)
+
+Same table structure as status code detail, filtered to entries whose `request.method` matches `value` case-insensitively (the comparison-table link encodes `method.toUpperCase()`, so `GET` / `get` / `Get` all collapse to the same row). The special value `(no method)` matches entries whose `request.method` is missing or empty after trimming. Page title is `HTTP Method: {value}` (or `Requests with No HTTP Method` for the `(no method)` sentinel).
 
 ### 4.6 Per-file performance dashboard (`/file/[index]`)
 

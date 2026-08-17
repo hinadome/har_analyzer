@@ -1,4 +1,4 @@
-import { HarFile, HarAnalysis, EntryRecord, HarStore } from '@/types/har';
+import { HarFile, HarAnalysis, EntryRecord, HarStore } from "@/types/har";
 
 export async function parseHarFile(file: File): Promise<HarFile> {
   return new Promise((resolve, reject) => {
@@ -8,7 +8,7 @@ export async function parseHarFile(file: File): Promise<HarFile> {
         const content = e.target?.result as string;
         const har = JSON.parse(content) as HarFile;
         if (!har.log || !Array.isArray(har.log.entries)) {
-          reject(new Error('Invalid HAR file format'));
+          reject(new Error("Invalid HAR file format"));
           return;
         }
         resolve(har);
@@ -16,82 +16,126 @@ export async function parseHarFile(file: File): Promise<HarFile> {
         reject(new Error(`Failed to parse HAR file: ${err}`));
       }
     };
-    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.onerror = () => reject(new Error("Failed to read file"));
     reader.readAsText(file);
   });
 }
 
 function normalizeContentType(mimeType: string): string {
-  if (!mimeType) return 'unknown';
-  return mimeType.split(';')[0].trim().toLowerCase();
+  if (!mimeType) return "unknown";
+  return mimeType.split(";")[0].trim().toLowerCase();
 }
 
 // Parse "name=value; name2=value2" from a Cookie request header
-function parseCookieHeader(value: string): Array<{ name: string; value: string }> {
-  return value.split(';').map((p) => p.trim()).filter(Boolean).map((p) => {
-    const idx = p.indexOf('=');
-    if (idx === -1) return { name: p, value: '' };
-    return { name: p.slice(0, idx).trim(), value: p.slice(idx + 1).trim() };
-  });
+function parseCookieHeader(
+  value: string,
+): Array<{ name: string; value: string }> {
+  return value
+    .split(";")
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => {
+      const idx = p.indexOf("=");
+      if (idx === -1) return { name: p, value: "" };
+      return { name: p.slice(0, idx).trim(), value: p.slice(idx + 1).trim() };
+    });
 }
 
 // Parse the first "name=value" segment from a Set-Cookie response header
 function parseSetCookieHeader(value: string): { name: string; value: string } {
-  const first = value.split(';')[0].trim();
-  const idx = first.indexOf('=');
-  if (idx === -1) return { name: first, value: '' };
-  return { name: first.slice(0, idx).trim(), value: first.slice(idx + 1).trim() };
+  const first = value.split(";")[0].trim();
+  const idx = first.indexOf("=");
+  if (idx === -1) return { name: first, value: "" };
+  return {
+    name: first.slice(0, idx).trim(),
+    value: first.slice(idx + 1).trim(),
+  };
 }
 
-export function analyzeHar(har: HarFile, fileName: string, fileIndex: number): HarAnalysis {
+export function analyzeHar(
+  har: HarFile,
+  fileName: string,
+  fileIndex: number,
+): HarAnalysis {
   const entries: EntryRecord[] = [];
   const statusCodeCounts: Record<number, number> = {};
+  const methodCounts: Record<string, number> = {};
   const contentTypeCounts: Record<string, number> = {};
   const contentSizeBucketCounts: Record<string, number> = {};
   const serverIPCounts: Record<string, number> = {};
   const uniqueUrls = new Set<string>();
   let totalContentSize = 0;
   for (const entry of har.log.entries) {
-    const url = entry.request?.url ?? '';
-    const method = entry.request?.method ?? '';
+    const url = entry.request?.url ?? "";
+    const method = entry.request?.method ?? "";
     const status = entry.response?.status ?? 0;
-    const statusText = entry.response?.statusText ?? '';
-    const contentType = normalizeContentType(entry.response?.content?.mimeType ?? '');
+    const statusText = entry.response?.statusText ?? "";
+    const contentType = normalizeContentType(
+      entry.response?.content?.mimeType ?? "",
+    );
     const contentSize = entry.response?.content?.size ?? 0;
     const bodySize = entry.response?.bodySize ?? 0;
     const time = entry.time ?? 0;
-    const startedDateTime = entry.startedDateTime ?? '';
+    const startedDateTime = entry.startedDateTime ?? "";
     const requestHeaders = entry.request?.headers ?? [];
     const responseHeaders = entry.response?.headers ?? [];
-    const serverIPAddress = entry.serverIPAddress ?? '';
-    const userAgent = requestHeaders.find((h) => h.name.toLowerCase() === 'user-agent')?.value ?? '';
+    const serverIPAddress = entry.serverIPAddress ?? "";
+    const userAgent =
+      requestHeaders.find((h) => h.name.toLowerCase() === "user-agent")
+        ?.value ?? "";
     const timings = entry.timings ?? { send: 0, wait: 0, receive: 0 };
 
     // Many HAR exporters leave the cookies array empty and rely on the
     // Cookie / Set-Cookie headers instead. Fall back to parsing those.
     let requestCookies = entry.request?.cookies ?? [];
     if (requestCookies.length === 0) {
-      const cookieHeader = requestHeaders.find((h) => h.name.toLowerCase() === 'cookie');
-      if (cookieHeader?.value) requestCookies = parseCookieHeader(cookieHeader.value);
+      const cookieHeader = requestHeaders.find(
+        (h) => h.name.toLowerCase() === "cookie",
+      );
+      if (cookieHeader?.value)
+        requestCookies = parseCookieHeader(cookieHeader.value);
     }
 
     let responseCookies = entry.response?.cookies ?? [];
     if (responseCookies.length === 0) {
       responseCookies = responseHeaders
-        .filter((h) => h.name.toLowerCase() === 'set-cookie')
+        .filter((h) => h.name.toLowerCase() === "set-cookie")
         .map((h) => parseSetCookieHeader(h.value));
     }
 
     const responseContent = entry.response?.content?.text;
 
-    entries.push({ url, method, status, statusText, contentType, contentSize, bodySize, time, timings, harFileName: fileName, harFileIndex: fileIndex, requestHeaders, responseHeaders, requestCookies, responseCookies, serverIPAddress, userAgent, responseContent, startedDateTime });
+    entries.push({
+      url,
+      method,
+      status,
+      statusText,
+      contentType,
+      contentSize,
+      bodySize,
+      time,
+      timings,
+      harFileName: fileName,
+      harFileIndex: fileIndex,
+      requestHeaders,
+      responseHeaders,
+      requestCookies,
+      responseCookies,
+      serverIPAddress,
+      userAgent,
+      responseContent,
+      startedDateTime,
+    });
 
     totalContentSize += contentSize;
     statusCodeCounts[status] = (statusCodeCounts[status] || 0) + 1;
+    const methodKey = method.toUpperCase() || "(no method)";
+    methodCounts[methodKey] = (methodCounts[methodKey] || 0) + 1;
     contentTypeCounts[contentType] = (contentTypeCounts[contentType] || 0) + 1;
     const bucket = getContentSizeBucket(contentSize);
-    contentSizeBucketCounts[bucket] = (contentSizeBucketCounts[bucket] || 0) + 1;
-    const ipKey = serverIPAddress || '(no IP)';
+    contentSizeBucketCounts[bucket] =
+      (contentSizeBucketCounts[bucket] || 0) + 1;
+    const ipKey = serverIPAddress || "(no IP)";
     serverIPCounts[ipKey] = (serverIPCounts[ipKey] || 0) + 1;
     uniqueUrls.add(url);
   }
@@ -102,6 +146,7 @@ export function analyzeHar(har: HarFile, fileName: string, fileIndex: number): H
     totalRequests: entries.length,
     totalContentSize,
     statusCodeCounts,
+    methodCounts,
     contentTypeCounts,
     contentSizeBucketCounts,
     serverIPCounts,
@@ -141,17 +186,47 @@ export function getAllServerIPs(analyses: HarAnalysis[]): string[] {
       ips.add(ip);
     }
   }
-  const sorted = Array.from(ips).filter((ip) => ip !== '(no IP)').sort();
-  if (ips.has('(no IP)')) sorted.push('(no IP)');
+  const sorted = Array.from(ips)
+    .filter((ip) => ip !== "(no IP)")
+    .sort();
+  if (ips.has("(no IP)")) sorted.push("(no IP)");
   return sorted;
 }
 
+const CANONICAL_METHOD_ORDER = [
+  "GET",
+  "HEAD",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "OPTIONS",
+  "CONNECT",
+  "TRACE",
+];
+
+export function getAllMethods(analyses: HarAnalysis[]): string[] {
+  const methods = new Set<string>();
+  for (const a of analyses) {
+    for (const m of Object.keys(a.methodCounts ?? {})) {
+      methods.add(m);
+    }
+  }
+  const canonical = CANONICAL_METHOD_ORDER.filter((m) => methods.has(m));
+  const others = Array.from(methods)
+    .filter((m) => !CANONICAL_METHOD_ORDER.includes(m) && m !== "(no method)")
+    .sort();
+  const result = [...canonical, ...others];
+  if (methods.has("(no method)")) result.push("(no method)");
+  return result;
+}
+
 const CONTENT_SIZE_BUCKETS: Array<{ label: string; max: number }> = [
-  { label: '0 B – 1 KB',     max: 1024 },
-  { label: '1 KB – 10 KB',   max: 10 * 1024 },
-  { label: '10 KB – 100 KB', max: 100 * 1024 },
-  { label: '100 KB – 1 MB',  max: 1024 * 1024 },
-  { label: '1 MB+',          max: Infinity },
+  { label: "0 B – 1 KB", max: 1024 },
+  { label: "1 KB – 10 KB", max: 10 * 1024 },
+  { label: "10 KB – 100 KB", max: 100 * 1024 },
+  { label: "100 KB – 1 MB", max: 1024 * 1024 },
+  { label: "1 MB+", max: Infinity },
 ];
 
 export function getContentSizeBucket(bytes: number): string {
@@ -166,9 +241,9 @@ export function getContentSizeBuckets(): string[] {
 }
 
 export function formatBytes(bytes: number): string {
-  if (bytes < 0) return 'N/A';
-  if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
+  if (bytes < 0) return "N/A";
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   const value = bytes / Math.pow(1024, i);
   return `${value.toFixed(1)} ${units[Math.min(i, units.length - 1)]}`;

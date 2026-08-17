@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **HTTP Methods section in the home-page Comparison Table** — a new section between Status Codes and Content Types, with one row per distinct method (`GET`, `POST`, `OPTIONS`, …) across all loaded files. Methods are sorted in canonical order (`GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, CONNECT, TRACE`), then any non-canonical methods alphabetically, with `(no method)` pinned to the end of the section when present. Each row label links to `/details?type=method&value={method}` (emerald text + hover underline), opening the existing entry-list view filtered to that method.
+  - Engine: `HarAnalysis.methodCounts: Record<string, number>` populated by `analyzeHar` (`entry.request.method` uppercased; empty bucketed as `(no method)`) and the new `getAllMethods(analyses)` helper in `utils/harParser.ts` for cross-file union + canonical ordering.
+  - `DetailType` union extends with `'method'`; `app/details/page.tsx` gains a filter branch (case-insensitive match on `entry.method`, special-case `(no method)` for missing values) and a `HTTP Method: {value}` title.
+  - Old IndexedDB analyses (pre-this-change) render `—` until the user re-uploads — read sites use `a.methodCounts ?? {}` so no migration is required.
+
 ## [0.1.4]
 
 ### Added

@@ -75,6 +75,7 @@ function makeAnalysis(entries: EntryRecord[]): HarAnalysis {
     totalRequests: entries.length,
     totalContentSize: 0,
     statusCodeCounts: {},
+    methodCounts: {},
     contentTypeCounts: {},
     contentSizeBucketCounts: {},
     serverIPCounts: {},

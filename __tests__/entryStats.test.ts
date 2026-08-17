@@ -46,6 +46,7 @@ function makeStore(entriesPerFile: EntryRecord[][]): HarStore {
     totalRequests: entries.length,
     totalContentSize: 0,
     statusCodeCounts: {},
+    methodCounts: {},
     contentTypeCounts: {},
     contentSizeBucketCounts: {},
     serverIPCounts: {},
