@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useMemo, useEffect, Suspense } from "react";
+import { useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import StatusBadge from "@/components/StatusBadge";
+import { PageShell } from "@/components/shell/PageShell";
+import { EmptyState } from "@/components/shell/EmptyState";
+import { LoadingState } from "@/components/shell/LoadingState";
 import { useHarStore } from "@/hooks/useHarStore";
 import { formatBytes } from "@/utils/harParser";
 import {
@@ -13,322 +15,19 @@ import {
   truncateBody,
   computeDiff,
   entryId,
-  sha256Hex,
   stripQuery,
   buildUrlGroups,
-  TRUNCATION_LIMIT,
 } from "@/utils/contentDiff";
 import type { EntryRecord } from "@/types/har";
 import type { UrlGroup } from "@/utils/contentDiff";
 import UnifiedDiffView from "@/components/UnifiedDiffView";
 import SideBySideDiffView from "@/components/SideBySideDiffView";
-
-// ---------------------------------------------------------------------------
-// Entry row
-// ---------------------------------------------------------------------------
-
-interface EntryRowProps {
-  entry: EntryRecord;
-  isBaseline: boolean;
-  isCompare: boolean;
-  onSelectBaseline: () => void;
-  onSelectCompare: () => void;
-}
-
-function EntryRow({
-  entry,
-  isBaseline,
-  isCompare,
-  onSelectBaseline,
-  onSelectCompare,
-}: EntryRowProps) {
-  const binary = isBinaryEntry(entry);
-  const utc = entry.startedDateTime
-    ? new Date(entry.startedDateTime).toLocaleString("en-US", {
-        timeZone: "UTC",
-      }) + " UTC"
-    : "—";
-
-  return (
-    <tr className="border-t border-slate-200 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-      {/* Baseline radio */}
-      <td className="py-3 px-4 text-center">
-        <input
-          type="radio"
-          name="baseline"
-          checked={isBaseline}
-          onChange={onSelectBaseline}
-          className="accent-blue-600"
-          aria-label={`Set ${entry.harFileName} as baseline`}
-        />
-      </td>
-      {/* Compare radio */}
-      <td className="py-3 px-4 text-center">
-        <input
-          type="radio"
-          name="compare"
-          checked={isCompare}
-          onChange={onSelectCompare}
-          className="accent-green-600"
-          aria-label={`Set ${entry.harFileName} as compare`}
-        />
-      </td>
-      {/* HAR file name */}
-      <td className="py-3 px-4 text-sm font-mono text-slate-700 dark:text-slate-300 max-w-[180px]">
-        <span
-          className="truncate block max-w-[180px]"
-          title={entry.harFileName}
-        >
-          {entry.harFileName}
-        </span>
-      </td>
-      {/* Full URL */}
-      <td className="py-3 px-4 text-xs font-mono text-blue-600 dark:text-blue-400 max-w-[260px]">
-        <Link
-          href={`/compare?url=${encodeURIComponent(entry.url)}`}
-          className="truncate block max-w-[260px] hover:underline"
-          title={entry.url}
-        >
-          {entry.url}
-        </Link>
-      </td>
-      {/* Status */}
-      <td className="py-3 px-4 text-sm">
-        <StatusBadge code={entry.status} />
-      </td>
-      {/* Content type */}
-      <td className="py-3 px-4 text-sm font-mono text-purple-600 dark:text-purple-400 text-xs">
-        {entry.contentType || "—"}
-      </td>
-      {/* Size */}
-      <td className="py-3 px-4 text-sm font-mono text-slate-700 dark:text-slate-300 text-right text-xs">
-        {formatBytes(entry.contentSize)}
-      </td>
-      {/* Timestamp */}
-      <td className="py-3 px-4 text-sm font-mono text-slate-600 dark:text-slate-400 text-xs whitespace-nowrap">
-        {utc}
-      </td>
-      {/* Binary badge */}
-      <td className="py-3 px-4 text-sm">
-        {binary && (
-          <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-            binary
-          </span>
-        )}
-      </td>
-    </tr>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Binary hash comparison
-// ---------------------------------------------------------------------------
-
-/**
- * Fallback panel shown when at least one of the selected entries has a
- * binary content type or no captured response body. Computes the SHA-256
- * hash of each side's stored response body (when present) and reports
- * whether they match, alongside byte sizes.
- */
-function BinaryHashCompare({
-  baseline,
-  compare,
-}: {
-  baseline: EntryRecord;
-  compare: EntryRecord;
-}) {
-  const baseHasBody = baseline.responseContent !== undefined;
-  const cmpHasBody = compare.responseContent !== undefined;
-
-  const [baseHash, setBaseHash] = useState<string | null>(null);
-  const [cmpHash, setCmpHash] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setBaseHash(null);
-    setCmpHash(null);
-    setError(null);
-
-    (async () => {
-      try {
-        const tasks: Promise<unknown>[] = [];
-        if (baseHasBody) {
-          tasks.push(
-            sha256Hex(baseline.responseContent ?? "").then((h) => {
-              if (!cancelled) setBaseHash(h);
-            }),
-          );
-        }
-        if (cmpHasBody) {
-          tasks.push(
-            sha256Hex(compare.responseContent ?? "").then((h) => {
-              if (!cancelled) setCmpHash(h);
-            }),
-          );
-        }
-        await Promise.all(tasks);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [baseline, compare, baseHasBody, cmpHasBody]);
-
-  const bothHaveBody = baseHasBody && cmpHasBody;
-  const ready = baseHash !== null && cmpHash !== null;
-  const identical = bothHaveBody && ready && baseHash === cmpHash;
-  const different = bothHaveBody && ready && baseHash !== cmpHash;
-
-  const missingLabel =
-    !baseHasBody && !cmpHasBody
-      ? "either entry"
-      : !baseHasBody
-        ? "baseline"
-        : "compare";
-
-  return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-6 space-y-4">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <p className="text-sm text-slate-600 dark:text-slate-400">
-          Line-by-line diffing is not applied to binary content. Comparing by
-          SHA-256 hash of the captured response body instead.
-        </p>
-        {error ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800/50">
-            Hash error: {error}
-          </span>
-        ) : !bothHaveBody ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
-            No body captured for {missingLabel}
-          </span>
-        ) : !ready ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-            Computing SHA-256…
-          </span>
-        ) : identical ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/50">
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-            Identical (matching SHA-256)
-          </span>
-        ) : different ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50">
-            Different (SHA-256 mismatch)
-          </span>
-        ) : null}
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        {[
-          {
-            label: "Baseline",
-            entry: baseline,
-            hash: baseHash,
-            hasBody: baseHasBody,
-          },
-          {
-            label: "Compare",
-            entry: compare,
-            hash: cmpHash,
-            hasBody: cmpHasBody,
-          },
-        ].map(({ label, entry, hash, hasBody }) => (
-          <div
-            key={label}
-            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 px-5 py-4 space-y-2"
-          >
-            <p className="text-xs text-slate-500 dark:text-slate-500 uppercase tracking-wider">
-              {label}
-            </p>
-            <p className="text-lg font-bold font-mono text-slate-900 dark:text-slate-100">
-              {formatBytes(entry.contentSize)}
-            </p>
-            <p
-              className="text-xs font-mono text-slate-500 dark:text-slate-500 truncate"
-              title={entry.harFileName}
-            >
-              {entry.harFileName}
-            </p>
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-              <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-1">
-                SHA-256
-              </p>
-              {!hasBody ? (
-                <p className="text-xs font-mono italic text-slate-500 dark:text-slate-500">
-                  no response body captured
-                </p>
-              ) : hash === null ? (
-                <p className="text-xs font-mono italic text-slate-500 dark:text-slate-500">
-                  computing…
-                </p>
-              ) : (
-                <p
-                  className="text-xs font-mono break-all text-slate-700 dark:text-slate-300"
-                  title={hash}
-                >
-                  {hash}
-                </p>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Truncation notice
-// ---------------------------------------------------------------------------
-
-interface TruncationNoticeProps {
-  fullLength: number;
-  showFull: boolean;
-  onToggle: () => void;
-  label: string;
-}
-
-function TruncationNotice({
-  fullLength,
-  showFull,
-  onToggle,
-  label,
-}: TruncationNoticeProps) {
-  return (
-    <div className="flex items-center justify-between px-4 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-xs">
-      <span className="text-amber-700 dark:text-amber-400">
-        <strong>{label}</strong> truncated at{" "}
-        {TRUNCATION_LIMIT.toLocaleString()} of {fullLength.toLocaleString()}{" "}
-        characters
-      </span>
-      <button
-        onClick={onToggle}
-        className="ml-4 text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300 underline underline-offset-2 shrink-0"
-      >
-        {showFull ? "Show less" : "Show full content"}
-      </button>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main content component (uses useSearchParams — must be inside Suspense)
-// ---------------------------------------------------------------------------
+import {
+  EntryRow,
+  BinaryHashCompare,
+  TruncationNotice,
+} from "@/components/content-diff/ContentDiffPanels";
+import { useEntryBody } from "@/hooks/useEntryBody";
 
 function ContentDiffPageContent() {
   const searchParams = useSearchParams();
@@ -405,15 +104,22 @@ function ContentDiffPageContent() {
     [urlEntries, compareId],
   );
 
+  const { body: baselineBody, loading: baselineBodyLoading } =
+    useEntryBody(baselineEntry);
+  const { body: compareBody, loading: compareBodyLoading } =
+    useEntryBody(compareEntry);
+  const bodiesLoading = baselineBodyLoading || compareBodyLoading;
+
   // Diff computation
   const diffData = useMemo(() => {
     if (!baselineEntry || !compareEntry) return null;
     if (baselineId === compareId) return null;
     if (isBinaryEntry(baselineEntry) || isBinaryEntry(compareEntry))
       return null;
+    if (baselineBody === undefined || compareBody === undefined) return null;
 
-    const baseRaw = baselineEntry.responseContent ?? "";
-    const cmpRaw = compareEntry.responseContent ?? "";
+    const baseRaw = baselineBody;
+    const cmpRaw = compareBody;
 
     const baseTrunc = truncateBody(baseRaw, showFullBaseline);
     const cmpTrunc = truncateBody(cmpRaw, showFullCompare);
@@ -447,6 +153,8 @@ function ContentDiffPageContent() {
     compareEntry,
     baselineId,
     compareId,
+    baselineBody,
+    compareBody,
     showFullBaseline,
     showFullCompare,
   ]);
@@ -500,77 +208,17 @@ function ContentDiffPageContent() {
     );
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center text-slate-600 dark:text-slate-500">
-        Loading...
-      </div>
-    );
+    return <LoadingState fullScreen message="Loading…" />;
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
-      {/* Header */}
-      <header className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-10 transition-colors">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
-          <Link
-            href="/"
-            className="text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 transition-colors flex items-center gap-1.5 text-sm"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            Home
-          </Link>
-          <div className="h-5 w-px bg-slate-300 dark:bg-slate-700" />
-          <div className="flex items-center gap-3">
-            <svg
-              className="w-5 h-5 text-blue-600 dark:text-blue-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-              />
-            </svg>
-            <h1 className="text-xl font-bold tracking-tight">HAR Analyzer</h1>
-          </div>
-          <span className="text-slate-400 dark:text-slate-600 text-sm">
-            / Content Diff
-          </span>
-          <div className="ml-auto">
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
-        {/* No HAR data state */}
+    <PageShell
+      back={{ href: "/", label: "Home" }}
+      crumb="Content Diff"
+      mainClassName="space-y-6"
+    >
         {!analyses.length ? (
-          <div className="flex flex-col items-center justify-center py-24 space-y-4">
-            <p className="text-slate-600 dark:text-slate-400 text-lg">
-              No HAR data loaded.
-            </p>
-            <Link
-              href="/"
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300 underline"
-            >
-              ← Upload HAR files to get started
-            </Link>
-          </div>
+          <EmptyState title="No HAR data loaded." />
         ) : (
           <>
             {/* URL Search */}
@@ -833,7 +481,13 @@ function ContentDiffPageContent() {
                   <BinaryHashCompare
                     baseline={baselineEntry}
                     compare={compareEntry}
+                    baselineBody={baselineBody}
+                    compareBody={compareBody}
                   />
+                ) : bodiesLoading ? (
+                  <p className="text-sm text-slate-600 dark:text-slate-500 py-8 text-center">
+                    Loading response bodies…
+                  </p>
                 ) : (
                   <>
                     {/* Identical banner */}
@@ -894,8 +548,7 @@ function ContentDiffPageContent() {
             )}
           </>
         )}
-      </main>
-    </div>
+    </PageShell>
   );
 }
 
@@ -903,15 +556,10 @@ function ContentDiffPageContent() {
 // Page export — outer shell with Suspense boundary
 // ---------------------------------------------------------------------------
 
+
 export default function ContentDiffPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center text-slate-600 dark:text-slate-500">
-          Loading...
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingState fullScreen message="Loading…" />}>
       <ContentDiffPageContent />
     </Suspense>
   );

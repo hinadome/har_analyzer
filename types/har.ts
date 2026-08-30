@@ -83,7 +83,15 @@ export interface EntryRecord {
   responseCookies: Array<{ name: string; value: string }>;
   serverIPAddress: string;
   userAgent: string;
+  /**
+   * In-memory response body. Omitted from IndexedDB hot blob (v2+);
+   * persisted under `bodyId` and loaded on demand.
+   */
   responseContent?: string;
+  /** True when a response body was captured at parse time. */
+  hasResponseBody?: boolean;
+  /** Stable ID for the cold body blob in IndexedDB (v2+). */
+  bodyId?: string;
   startedDateTime: string;
 }
 
@@ -101,9 +109,13 @@ export interface HarAnalysis {
   entries: EntryRecord[];
 }
 
+/** Hot metadata blob. Bodies live under separate IDB keys (v2+). */
 export interface HarStore {
+  /** Schema version. Missing / &lt; 2 = legacy single-blob with inline bodies. */
+  version?: number;
   analyses: HarAnalysis[];
 }
+
 
 export type DetailType =
   | "status"

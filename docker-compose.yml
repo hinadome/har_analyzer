@@ -3,6 +3,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Uncomment to enable the large-HAR parse worker for all users at build time:
+      # args:
+      #   NEXT_PUBLIC_HAR_PARSE_WORKER: "1"
     image: har-analyzer:latest
     container_name: har-analyzer
     ports:

@@ -3,11 +3,12 @@
 import { useState, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import StatusBadge from '@/components/StatusBadge';
 import HeaderDiffView from '@/components/HeaderDiffView';
+import { PageShell } from '@/components/shell/PageShell';
+import { EmptyState } from '@/components/shell/EmptyState';
+import { LoadingState } from '@/components/shell/LoadingState';
 import { useHarStore } from '@/hooks/useHarStore';
-import { formatBytes } from '@/utils/harParser';
 import { entryId, stripQuery, buildUrlGroups } from '@/utils/contentDiff';
 import { computeHeaderDiff } from '@/utils/headerDiff';
 import type { EntryRecord } from '@/types/har';
@@ -157,42 +158,17 @@ function HeaderDiffPageContent() {
     !allUrls.some((u) => (ignoreQuery ? stripQuery(u) === stripQuery(urlParam) : u === urlParam));
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center text-slate-600 dark:text-slate-500">
-        Loading...
-      </div>
-    );
+    return <LoadingState fullScreen message="Loading…" />;
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
-      {/* Header */}
-      <header className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-10 transition-colors">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
-          <Link href="/" className="text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 transition-colors flex items-center gap-1.5 text-sm">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Home
-          </Link>
-          <div className="h-5 w-px bg-slate-300 dark:bg-slate-700" />
-          <div className="flex items-center gap-3">
-            <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            <h1 className="text-xl font-bold tracking-tight">HAR Analyzer</h1>
-          </div>
-          <span className="text-slate-400 dark:text-slate-600 text-sm">/ Header Diff</span>
-          <div className="ml-auto"><ThemeToggle /></div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+    <PageShell
+      back={{ href: '/', label: 'Home' }}
+      crumb="Header Diff"
+      mainClassName="space-y-6"
+    >
         {!analyses.length ? (
-          <div className="flex flex-col items-center justify-center py-24 space-y-4">
-            <p className="text-slate-600 dark:text-slate-400 text-lg">No HAR data loaded.</p>
-            <Link href="/" className="text-blue-600 dark:text-blue-400 hover:underline">← Upload HAR files to get started</Link>
-          </div>
+          <EmptyState title="No HAR data loaded." />
         ) : (
           <>
             {/* URL Search */}
@@ -353,18 +329,13 @@ function HeaderDiffPageContent() {
             )}
           </>
         )}
-      </main>
-    </div>
+    </PageShell>
   );
 }
 
 export default function HeaderDiffPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center text-slate-600 dark:text-slate-500">
-        Loading...
-      </div>
-    }>
+    <Suspense fallback={<LoadingState fullScreen message="Loading…" />}>
       <HeaderDiffPageContent />
     </Suspense>
   );

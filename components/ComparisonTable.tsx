@@ -22,6 +22,9 @@ function Cell({ value }: { value: number | undefined }) {
   return <span className="font-mono">{value.toLocaleString()}</span>;
 }
 
+/** Exported for tests that assert zero vs missing cell rendering. */
+export { Cell as ComparisonTableCell };
+
 export default function ComparisonTable({ analyses }: ComparisonTableProps) {
   const allStatusCodes = getAllStatusCodes(analyses);
   const allMethods = getAllMethods(analyses);

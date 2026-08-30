@@ -4,8 +4,9 @@ A browser-based tool for uploading, analyzing, and comparing multiple HAR (HTTP 
 
 ## Features
 
-- Upload multiple `.har` files via drag-and-drop or file browser
-- Comparison table showing request counts, status codes, HTTP methods, unique URLs, content types, content size totals, and content size distribution per file
+- Upload multiple `.har` files via drag-and-drop or file browser, with per-file parse progress during upload
+- **Home insight strip** — after upload, the first viewport answers "what should I look at?" with request/error/size totals, optional pair deltas when two files are loaded, and a primary CTA to open file performance or pair diff
+- Comparison table (collapsible behind "Full metrics table") showing request counts, status codes, HTTP methods, unique URLs, content types, content size totals, and content size distribution per file
 - Clickable status codes, HTTP methods, URLs, content types, and content size ranges that link to detailed breakdowns
 - Details pages with sortable, filterable, paginated entry tables
 - URL details grouped by endpoint with per-file hit counts and expandable rows
@@ -16,11 +17,12 @@ A browser-based tool for uploading, analyzing, and comparing multiple HAR (HTTP 
 - Per-request timing breakdown: stacked bar chart and phase grid (DNS, Connect, SSL, Send, TTFB, Receive) shown when expanding any individual request
 - **Content Diff page** — search for a URL, select any two entries, and view a line-by-line diff of their response bodies with intra-line character highlighting, JSON auto-prettification, unified and side-by-side modes, and an "ignore query string" toggle for grouping requests by base path. When either entry is binary (image, font, audio/video, octet-stream, zip, pdf) or has no captured body, the panel falls back to a SHA-256 hash comparison that reports whether the two responses are identical, different, or have no body captured
 - **Header Diff page** — same URL search and entry selection as Content Diff, but diffs request headers, response headers, request cookies, and response cookies between two entries — showing added, removed, changed, and equal key-value pairs in a color-coded table
-- **Header & Cookie Search page** (`/kv-search`) — free-text search over every header and cookie carried by the loaded HARs. Three needles (Name / Value / URL contains) with `contains` / `exact` / `regex` modes, case-sensitive toggle, four scope chips (req header / res header / req cookie / res cookie), and a file scope. Same-pair AND semantics; results table with click-to-expand highlighted match spans; the URL cell deep-links to `/compare`, and the expanded full URL deep-links to `/entry/[file]/[index]`
-- **CORS Audit page** (`/cors`) — automated review of every cross-origin request in the loaded HARs. Detects nine finding kinds (failed/slow preflights, missing or mismatched `Access-Control-Allow-Origin`, wildcard ACAO with credentials, disallowed method, disallowed request header, missing `Access-Control-Allow-Credentials` flag, blocked actual request). KPI cards summarize totals, failed/slow preflights, and cross-origin counts; the issues table is filterable by file, severity, and Origin; clicking any row reveals a side-by-side request/response handshake panel with each finding's sent / expected / received triplet. A collapsible "Preflight pairs" section chains every OPTIONS request to its matching actual request within a 5 s window with a single-pill verdict per pair
-- **Single-entry detail page** (`/entry/[file]/[index]`) — deep dive into one specific request: title block with method / status / URL; performance card with stacked timing bar, phase grid, and a context strip ranking this entry's time and content size against the file's P50 / P95 / P99 and size distribution; Request, Response, and Content cards exposing headers (sortable a–z), parsed cookies, parsed query string, raw `Set-Cookie` values, and the response body (capped at 50 000 chars with "Show full" toggle + copy-to-clipboard; binary and no-body fallbacks). Linked from the per-file entry list URL cell, the `/compare` per-entry expand-panel header, the `/kv-search` expanded panel, and three sites on `/cors` (issues table URL cell, handshake panel "Open entry detail →" affordance, and the preflight-pair OPTIONS / Actual URL rows)
+- **Header & Cookie Search page** (`/kv-search`) — free-text search over every header and cookie carried by the loaded HARs. Three needles (Name / Value / URL contains) with `contains` / `exact` / `regex` modes, case-sensitive toggle, four scope chips (req header / res header / req cookie / res cookie), and a file scope. Same-pair AND semantics; paginated results table (50 rows per page) with click-to-expand highlighted match spans; the URL cell deep-links to `/compare`, and the expanded full URL deep-links to `/entry/[file]/[index]`
+- **CORS page** (`/cors`) — audit **and inventory** for every cross-origin request in the loaded HARs. Detects nine finding kinds (failed/slow preflights, missing or mismatched `Access-Control-Allow-Origin`, wildcard ACAO with credentials, disallowed method, disallowed request header, missing `Access-Control-Allow-Credentials` flag, blocked actual request). KPI cards summarize totals, failed/slow preflights, and cross-origin counts; the issues table is filterable by file, severity, and Origin; when no issues are found, a **CORS requests** table still lists every cross-origin and preflight entry (origin, ACAO, credentialed flag, per-row findings) with expandable handshake panels. A collapsible "Preflight pairs" section chains every OPTIONS request to its matching actual request within a 5 s window
+- **Single-entry detail page** (`/entry/[file]/[index]`) — deep dive into one specific request: title block with method / status / URL; performance card with stacked timing bar, phase grid, and a context strip ranking this entry's time and content size against the file's P50 / P95 / P99 and size distribution; Request, Response, and Content cards exposing headers (sortable a–z), parsed cookies, parsed query string, raw `Set-Cookie` values, and the response body (loaded on demand from IndexedDB; capped at 50 000 chars with "Show full" toggle + copy-to-clipboard; binary and no-body fallbacks). Linked from the per-file entry list URL cell, the `/compare` per-entry expand-panel header, the `/kv-search` expanded panel, and three sites on `/cors` (issues table URL cell, handshake panel "Open entry detail →" affordance, and the preflight-pair OPTIONS / Actual URL rows)
+- **Privacy controls** — dismissible banner on first visit explaining that HARs may contain credentials and data stays in this browser's IndexedDB; optional **Redact credentials before saving** toggle masks `Authorization`, `Cookie` / `Set-Cookie`, and common token query params before persistence (off by default so CORS and kv-search keep real values)
 - All data processed entirely in the browser — no server required
-- Persistent state via `IndexedDB` across page refreshes to bypass typical browser quota limits
+- Persistent state via **IndexedDB v2** across page refreshes: entry metadata in a hot blob; response bodies stored under separate keys and loaded on demand for entry detail, compare Content tab, and content diff
 
 ## Getting Started
 
@@ -39,23 +41,31 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `npm run build`  | Build for production                  |
 | `npm run start`  | Start production server               |
 | `npm run lint`   | Run ESLint                            |
-| `npx vitest run` | Run the test suite once               |
+| `npm test`       | Run the Vitest suite once             |
 
 ## Usage
 
-1. **Upload HAR files** — drag one or more `.har` files onto the upload zone, or click to open the file picker. Files can be added incrementally.
-2. **Review the comparison table** — see total requests, unique URL counts, per-status-code counts, per-HTTP-method counts, per-content-type counts, total response size, and content size distribution buckets for each file in a single table.
-3. **Drill into details** — click any status code, the "Unique URLs" row, any HTTP method, any content type label, or any content size range to open a details page filtered to that dimension.
-4. **Inspect per-file performance** — click a file name chip or the file detail link to see P50/P95/P99 latency, slowest requests, largest resources, and an average timing breakdown across all requests.
-5. **See the cross-file performance overview** — click "Performance Dashboard" on the home page to open `/performance`, which lays every loaded file out side by side: KPI matrix, timing-phase comparison, shared-axis distribution histogram, per-content-type table, and combined Slowest/Largest top lists.
-6. **Compare two specific runs head-to-head** — when at least two files are loaded, click "Compare two runs →" (visible on the home page and on the performance dashboard) to open `/performance/diff`. Pick a baseline and compare file, toggle Path / Full URL matching, and review headline KPI Δs, per-phase timing Δs, an overlaid histogram, per-content-type Δs, biggest movers, regressions/improvements, and unique-URL listings.
-7. **Compare a URL across files** — from the URL detail view, click any URL to open the compare page. Expand any request row to see its headers, cookies, a **Timing** tab showing phase-by-phase breakdown (DNS, TCP connect, SSL, send time, TTFB, and receive time), and a **Content** tab displaying the exact text payload of the response.
-8. **Diff response bodies** — click "Content Diff" on the compare page (or navigate to `/content-diff`) to search for a URL and compare the response body of any two entries side by side. Toggle "Ignore query string" to group requests to the same endpoint regardless of query params. Click any URL in the entry table to jump to the compare page for that request.
-9. **Diff headers and cookies** — click "Header Diff" on the compare page (or navigate to `/header-diff`) to compare request/response headers and cookies between any two entries. Color-coded rows show exactly which headers were added, removed, or changed.
-10. **Audit CORS** — when at least one cross-origin request is captured, click "CORS Audit" on the home page (or the per-file CORS Audit → link in `/file/[index]`) to open `/cors`. Filter by file scope, severity, or request Origin; click a finding to expand the handshake panel; or open the Preflight pairs section to see each OPTIONS request chained with its actual follow-up request.
-11. **Search headers and cookies** — click "Search Headers/Cookies" on the home page (or the per-file link in `/file/[index]`, or any header name in the `/cors` handshake panel) to open `/kv-search`. Enter a name, value, or URL fragment; pick a mode and scope; click any result row to expand the matching pair(s) with the matched substrings highlighted. The expanded URL line deep-links straight to the single-entry detail page for that hit.
-12. **Inspect a single request in depth** — click any URL in the per-file entry list, the "Detail →" link in `/compare`'s expand panel, the expanded URL in a `/kv-search` result, or any of the `/cors` deep links (issues table URL cell, the handshake panel's **Open entry detail →** affordance, or the OPTIONS / Actual URL in a preflight pair) to open `/entry/[file]/[index]`. The page contrasts this entry's time and size against the file's P50/P95/P99, shows the full timing phase grid, and lets you browse headers/cookies/query string/response body in one place.
-13. **Remove or clear files** — click the × on a file chip to remove it, or use "Clear all" in the header to reset.
+1. **Upload HAR files** — drag one or more `.har` files onto the upload zone, or click to open the file picker. Files can be added incrementally. Parse progress shows the current file name while processing. Optionally enable **Redact credentials before saving** to mask sensitive headers and query params before data is written to IndexedDB.
+2. **Review the insight strip** — see total requests, errors (4xx/5xx/0), total size, and file count at a glance. With two files loaded, headline pair deltas link straight to `/performance/diff`. A CORS chip appears when cross-origin traffic exists: red for errors, amber for warnings only, neutral green-ish "all clear" when traffic passed audit.
+3. **Open a tool** — use the Tools row (Performance overview, Pair diff, CORS, kv-search, Content diff, Header diff) or the primary CTA (single file → file performance; two files → pair diff).
+4. **Drill into details** — expand "Full metrics table" on the home page, or click any status code, the "Unique URLs" row, any HTTP method, any content type label, or any content size range to open a details page filtered to that dimension.
+5. **Inspect per-file performance** — click a file name chip or the file detail link to see P50/P95/P99 latency, slowest requests, largest resources, and an average timing breakdown across all requests.
+6. **See the cross-file performance overview** — open `/performance` from Tools to lay every loaded file out side by side: KPI matrix, timing-phase comparison, shared-axis distribution histogram, per-content-type table, and combined Slowest/Largest top lists.
+7. **Compare two specific runs head-to-head** — when at least two files are loaded, use **Compare two runs** (insight strip or performance dashboard) to open `/performance/diff`. Pick a baseline and compare file, toggle Path / Full URL matching, and review headline KPI Δs, per-phase timing Δs, an overlaid histogram, per-content-type Δs, biggest movers, regressions/improvements, and unique-URL listings.
+8. **Compare a URL across files** — from the URL detail view, click any URL to open the compare page. Expand any request row to see its headers, cookies, a **Timing** tab showing phase-by-phase breakdown (DNS, TCP connect, SSL, send time, TTFB, and receive time), and a **Content** tab displaying the exact text payload of the response.
+9. **Diff response bodies** — open **Content diff** from Tools (or navigate to `/content-diff`) to search for a URL and compare the response body of any two entries side by side. Toggle "Ignore query string" to group requests to the same endpoint regardless of query params.
+10. **Diff headers and cookies** — open **Header diff** from Tools (or navigate to `/header-diff`) to compare request/response headers and cookies between any two entries.
+11. **Review CORS** — when cross-origin requests exist, open **CORS** from the insight strip or Tools. Filter by file scope, severity, or request Origin. When findings exist, the issues table is shown first; when the audit is clean, the **CORS requests** inventory is promoted so you can browse origins, ACAO, and handshake headers without an empty dead-end.
+12. **Search headers and cookies** — open **Search headers/cookies** from Tools (or the per-file link in `/file/[index]`) to open `/kv-search`. Enter a name, value, or URL fragment; pick a mode and scope; paginate through results and expand rows for highlighted matches.
+13. **Inspect a single request in depth** — click any URL in the per-file entry list, the "Detail →" link in `/compare`'s expand panel, the expanded URL in a `/kv-search` result, or any of the `/cors` deep links to open `/entry/[file]/[index]`.
+14. **Remove or clear files** — click the × on a file chip to remove it, or use "Clear all" in the header to reset local IndexedDB data.
+
+### Large HAR files
+
+For files ≥ 5 MB, an optional Web Worker parse path can be enabled (falls back to main-thread parsing if the worker is unavailable):
+
+- `localStorage.setItem('har_parse_worker', '1')`, or
+- build with `NEXT_PUBLIC_HAR_PARSE_WORKER=1`
 
 ### Understanding timing data
 
@@ -93,64 +103,71 @@ The single-entry detail page (`/entry/[file]/[index]`) tags every request with a
 
 ```
 har_analyzer/
-├── app/
-│   ├── layout.tsx          # Root layout
-│   ├── page.tsx            # Main page: upload + comparison table
-│   ├── globals.css         # Global styles
-│   ├── details/
-│   │   └── page.tsx        # Details page (status / URL / content type)
-│   ├── file/
-│   │   └── [index]/
-│   │       └── page.tsx    # Per-file performance dashboard (accepts ?search= to seed filter)
+├── app/                        # Next.js App Router pages (thin orchestrators)
+│   ├── layout.tsx
+│   ├── page.tsx                # Home: upload, insight strip, tools, comparison table
+│   ├── details/page.tsx
+│   ├── file/[index]/page.tsx
 │   ├── performance/
-│   │   ├── page.tsx        # Cross-file performance overview
-│   │   └── diff/
-│   │       └── page.tsx    # Pair-mode baseline vs. compare diff dashboard
-│   ├── compare/
-│   │   └── page.tsx        # Per-URL cross-file comparison with expandable request detail
-│   ├── content-diff/
-│   │   └── page.tsx        # Response body diff page with unified/side-by-side modes
-│   ├── header-diff/
-│   │   └── page.tsx        # Header/cookie diff page
-│   ├── kv-search/
-│   │   └── page.tsx        # Header & cookie search across all loaded files
-│   ├── cors/
-│   │   └── page.tsx        # CORS audit dashboard (issues table + handshake + pairs)
-│   └── entry/
-│       └── [file]/
-│           └── [index]/
-│               └── page.tsx # Single-entry detail page (perf ranking + request/response/content)
+│   │   ├── page.tsx
+│   │   └── diff/page.tsx
+│   ├── compare/page.tsx
+│   ├── content-diff/page.tsx
+│   ├── header-diff/page.tsx
+│   ├── kv-search/page.tsx
+│   ├── cors/page.tsx
+│   └── entry/[file]/[index]/page.tsx
 ├── components/
-│   ├── FileUpload.tsx          # Drag-and-drop file upload zone
-│   ├── ComparisonTable.tsx     # Cross-file comparison table
-│   ├── StatusBadge.tsx         # Reusable status code color badge
-│   ├── UnifiedDiffView.tsx     # Single-panel diff renderer
-│   ├── SideBySideDiffView.tsx  # Two-column diff renderer
-│   ├── HeaderDiffView.tsx      # Key-value header/cookie diff renderer
-│   └── timingPhases.ts         # Shared TIMING_PHASES color/label table reused by every timing bar
+│   ├── shell/                  # Shared chrome: AppHeader, PageShell, EmptyState, LoadingState
+│   ├── home/                   # InsightStrip, PrivacyBanner, RedactSecretsToggle
+│   ├── compare/                # ComparePanels (PerFileRow, expand tabs, …)
+│   ├── content-diff/           # ContentDiffPanels
+│   ├── cors/                   # CorsPanels (KPI, issues, CORS requests inventory, pairs)
+│   ├── kv-search/              # KvSearchPanels (paginated results)
+│   ├── performance/            # Performance overview panels
+│   ├── performance-diff/       # Pair diff panels
+│   ├── shared/                 # fileColors and other cross-route helpers
+│   ├── FileUpload.tsx
+│   ├── ComparisonTable.tsx
+│   ├── StatusBadge.tsx
+│   ├── UnifiedDiffView.tsx
+│   ├── SideBySideDiffView.tsx
+│   ├── HeaderDiffView.tsx
+│   └── timingPhases.ts
+├── hooks/
+│   ├── useHarStore.ts
+│   └── useEntryBody.ts         # On-demand body load from IndexedDB (v2)
+├── workers/
+│   └── harParse.worker.ts      # Optional large-HAR parse (feature-flagged)
 ├── types/
-│   └── har.ts              # HAR format and analysis TypeScript types
+│   └── har.ts
 ├── utils/
-│   ├── harParser.ts        # HAR parsing and analysis logic
-│   ├── storage.ts          # IndexedDB read/write helpers
-│   ├── contentDiff.ts      # Diff engine: computeDiff, prettifyIfJson, stripQuery, buildUrlGroups
-│   ├── headerDiff.ts       # Header/cookie diff engine: diffKvPairs, computeHeaderDiff
-│   ├── perfStats.ts        # Performance helpers: percentiles, timing avgs, histogram, regressions, content-type Δ
-│   ├── perfFormat.ts       # Δ formatters: formatDelta, formatPctChange, deltaTone
-│   ├── corsAnalysis.ts     # CORS audit: cross-origin / preflight detection, preflight pairing, 9 finding kinds
-│   ├── kvSearch.ts         # Header/cookie search engine: compileMatcher, searchEntries, scope URL helpers
-│   └── entryStats.ts       # Single-entry lookup + file-relative ranking (compareEntryToFile, parseUrlQuery, …)
-└── sample-hars/            # Sample HAR files for testing
-    ├── sample-a.har
-    ├── sample-b.har
-    └── sample-c.har
+│   ├── harParser.ts
+│   ├── parseHar.ts             # Upload parse + optional worker dispatch
+│   ├── storage.ts              # IndexedDB v2: hot metadata + cold body keys
+│   ├── privacy.ts              # Opt-in redaction helpers
+│   ├── homeInsights.ts         # Cheap home-page rollups
+│   ├── entrySearch.ts          # Shared details-table search filter
+│   ├── bodyId.ts
+│   ├── contentDiff.ts
+│   ├── headerDiff.ts
+│   ├── perfStats.ts
+│   ├── perfFormat.ts
+│   ├── corsAnalysis.ts
+│   ├── kvSearch.ts
+│   └── entryStats.ts
+├── __tests__/                  # Vitest unit + RTL smoke tests
+└── sample-hars/
 ```
 
 ## Tech Stack
 
 - **Next.js 16** (App Router, client components)
 - **TypeScript** (strict mode)
-- **Tailwind CSS v4** (dark theme)
+- **Tailwind CSS v4** (light + dark theme via `next-themes`)
 - **React 19**
 - **`diff`** (line and character-level diffing for the Content Diff page)
+- **`idb-keyval`** (IndexedDB persistence)
 - **Vitest** + **@testing-library/react** + **fast-check** (unit and property-based tests)
+
+See `REFACTOR_PLAN.md` for the full refactor execution log and remaining optional work.

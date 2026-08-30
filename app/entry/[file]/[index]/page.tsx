@@ -3,7 +3,6 @@
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import StatusBadge from "@/components/StatusBadge";
 import { useHarStore } from "@/hooks/useHarStore";
 import { formatBytes, formatTime } from "@/utils/harParser";
@@ -21,17 +20,15 @@ import {
 import { isBinaryEntry, TRUNCATION_LIMIT } from "@/utils/contentDiff";
 import { normalizeTiming } from "@/utils/perfStats";
 import { TIMING_PHASES } from "@/components/timingPhases";
+import { PageShell } from "@/components/shell/PageShell";
+import { EmptyState } from "@/components/shell/EmptyState";
+import { LoadingState } from "@/components/shell/LoadingState";
+import { useEntryBody } from "@/hooks/useEntryBody";
 import type { EntryRecord, HarHeader } from "@/types/har";
 
 export default function EntryDetailPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center text-slate-600 dark:text-slate-500">
-          Loading...
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingState fullScreen message="Loading…" />}>
       <EntryDetailPageContent />
     </Suspense>
   );
@@ -45,11 +42,7 @@ function EntryDetailPageContent() {
   const { store, isLoading } = useHarStore();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center text-slate-600 dark:text-slate-500">
-        Loading...
-      </div>
-    );
+    return <LoadingState fullScreen message="Loading…" />;
   }
 
   if (!store || store.analyses.length === 0) {
@@ -122,37 +115,13 @@ function EntryDetailPageContent() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
-      <header className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-10 transition-colors">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
-          <Link
-            href="/"
-            className="text-slate-600 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors flex items-center gap-1.5 text-sm"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            Back
-          </Link>
-          <div className="h-5 w-px bg-slate-300 dark:bg-slate-700" />
-          <h1 className="text-xl font-bold tracking-tight">HAR Analyzer</h1>
-          <div className="ml-auto">
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">{children}</main>
-    </div>
+    <PageShell
+      back={{ href: "/", label: "Home" }}
+      crumb="Entry"
+      mainClassName="space-y-6"
+    >
+      {children}
+    </PageShell>
   );
 }
 
@@ -166,21 +135,21 @@ function NotFound({
   extra?: React.ReactNode;
 }) {
   return (
-    <div className="text-center py-16 space-y-3">
-      <p className="text-slate-700 dark:text-slate-300 text-lg font-medium">
-        {title}
-      </p>
-      <p className="text-slate-600 dark:text-slate-500 text-sm">{message}</p>
-      <div className="pt-2 flex items-center justify-center gap-4">
-        <Link
-          href="/"
-          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300 underline text-sm"
-        >
-          ← Back to upload
-        </Link>
-        {extra}
-      </div>
-    </div>
+    <EmptyState
+      title={title}
+      description={message}
+      action={
+        <div className="pt-2 flex items-center justify-center gap-4">
+          <Link
+            href="/"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300 underline text-sm"
+          >
+            ← Back to upload
+          </Link>
+          {extra}
+        </div>
+      }
+    />
   );
 }
 
@@ -606,7 +575,8 @@ function ResponseCard({ entry }: { entry: EntryRecord }) {
 
 function ContentCard({ entry }: { entry: EntryRecord }) {
   const binary = isBinaryEntry(entry);
-  const body = entry.responseContent ?? "";
+  const { body: loaded, loading } = useEntryBody(entry);
+  const body = loaded ?? "";
   const fullLength = body.length;
   const [showFull, setShowFull] = useState(false);
   const truncated = !showFull && fullLength > TRUNCATION_LIMIT;
@@ -623,9 +593,13 @@ function ContentCard({ entry }: { entry: EntryRecord }) {
         </span>
       </header>
       <div className="px-5 py-4 space-y-3">
-        {binary || !body ? (
+        {loading ? (
           <p className="text-slate-600 dark:text-slate-500 text-xs italic">
-            {binary
+            Loading response body…
+          </p>
+        ) : binary || !body ? (
+          <p className="text-slate-600 dark:text-slate-500 text-xs italic">
+            {entry.hasResponseBody === true
               ? "Binary content (image, font, audio, video, …) — body not displayed."
               : "No response body captured for this entry."}
           </p>

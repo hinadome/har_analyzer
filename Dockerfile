@@ -14,6 +14,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
+# Optional: docker build --build-arg NEXT_PUBLIC_HAR_PARSE_WORKER=1
+ARG NEXT_PUBLIC_HAR_PARSE_WORKER
+ENV NEXT_PUBLIC_HAR_PARSE_WORKER=${NEXT_PUBLIC_HAR_PARSE_WORKER}
 RUN npm run build
 
 # ── Stage 3: runner ──────────────────────────────────────────────────────────

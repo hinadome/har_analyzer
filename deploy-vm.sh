@@ -37,6 +37,9 @@ if [[ "${1:-}" == "--update" ]]; then
   info "Installing dependencies..."
   npm ci
 
+  info "Running tests..."
+  npm test
+
   info "Building application..."
   npm run build
 
@@ -45,6 +48,7 @@ if [[ "${1:-}" == "--update" ]]; then
 
   # Next.js standalone output does not bundle public/ or .next/static/
   # automatically; copy them into the standalone tree so server.js can serve them.
+  # Worker chunks (harParse.worker) live under .next/static/ and are included here.
   info "Copying static assets into standalone bundle..."
   cp -r public .next/standalone/
   cp -r .next/static .next/standalone/.next/
@@ -56,6 +60,9 @@ if [[ "${1:-}" == "--update" ]]; then
 
   pm2 save
   info "Update complete. App running at http://localhost:${PORT}"
+  echo ""
+  echo "  Smoke test: upload a HAR at /, open /cors if cross-origin traffic exists."
+  echo "  Optional worker: export NEXT_PUBLIC_HAR_PARSE_WORKER=1 before rebuild."
   exit 0
 fi
 
@@ -100,7 +107,11 @@ fi
 info "Installing dependencies..."
 npm ci
 
-# 6. Build
+# 5a. Test (requires devDependencies — run before prune)
+info "Running tests..."
+npm test
+
+# 6. Build (honours NEXT_PUBLIC_HAR_PARSE_WORKER if exported in the environment)
 info "Building application (this may take a minute)..."
 npm run build
 
@@ -112,6 +123,7 @@ npm prune --omit=dev
 # Next.js' standalone output ships a minimal server.js + traced node_modules
 # but intentionally does not copy public/ or .next/static/ — they are expected
 # to be served by a CDN, or copied in manually (per the Next.js docs).
+# Worker assets (optional large-HAR parse) are under .next/static/ and included.
 info "Copying static assets into standalone bundle..."
 cp -r public .next/standalone/
 cp -r .next/static .next/standalone/.next/
@@ -150,3 +162,8 @@ echo "  URL:    http://localhost:${PORT}"
 echo "  Logs:   pm2 logs ${APP_NAME}"
 echo "  Status: pm2 status"
 echo "  Update: bash $APP_DIR/deploy-vm.sh --update"
+echo ""
+echo "  Smoke test: open /, upload a HAR, check insight strip + Tools row."
+echo "  CORS:       /cors should list cross-origin requests even when audit is clean."
+echo "  Worker:     export NEXT_PUBLIC_HAR_PARSE_WORKER=1 && bash $APP_DIR/deploy-vm.sh --update"
+echo "  See DEPLOYMENT.md for full post-deploy verification checklist."

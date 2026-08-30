@@ -3,7 +3,6 @@
 import { useState, useMemo, Suspense, Fragment } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { EntryRecord, HarAnalysis, DetailType } from "@/types/har";
 import { useHarStore } from "@/hooks/useHarStore";
 import {
@@ -12,6 +11,10 @@ import {
   getContentSizeBucket,
 } from "@/utils/harParser";
 import StatusBadge from "@/components/StatusBadge";
+import { PageShell } from "@/components/shell/PageShell";
+import { EmptyState } from "@/components/shell/EmptyState";
+import { LoadingState } from "@/components/shell/LoadingState";
+import { filterEntriesBySearch } from "@/utils/entrySearch";
 
 interface GroupedByUrl {
   url: string;
@@ -40,13 +43,7 @@ type SortField =
 
 export default function DetailsPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center text-slate-600 dark:text-slate-400">
-          Loading...
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingState fullScreen message="Loading…" />}>
       <DetailsPageContent />
     </Suspense>
   );
@@ -101,14 +98,7 @@ function DetailsPageContent() {
     }
 
     if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      entries = entries.filter(
-        (e) =>
-          e.url.toLowerCase().includes(q) ||
-          e.contentType.toLowerCase().includes(q) ||
-          String(e.status).includes(q) ||
-          e.harFileName.toLowerCase().includes(q),
-      );
+      entries = filterEntriesBySearch(entries, search);
     }
 
     return entries;
@@ -188,78 +178,19 @@ function DetailsPageContent() {
                 : "All URLs";
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center text-slate-600 dark:text-slate-500">
-        Loading...
-      </div>
-    );
+    return <LoadingState fullScreen message="Loading…" />;
   }
 
   if (!allEntries.length) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <p className="text-slate-600 dark:text-slate-400 text-lg">
-            No HAR data loaded.
-          </p>
-          <Link
-            href="/"
-            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300 underline"
-          >
-            ← Back to upload
-          </Link>
-        </div>
-      </div>
+      <PageShell back={{ href: "/", label: "Home" }} crumb="Details">
+        <EmptyState title="No HAR data loaded." />
+      </PageShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
-      <header className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-10 transition-colors">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
-          <Link
-            href="/"
-            className="text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 transition-colors flex items-center gap-1.5 text-sm"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            Back
-          </Link>
-          <div className="h-5 w-px bg-slate-700" />
-          <div className="flex items-center gap-3">
-            <svg
-              className="w-5 h-5 text-blue-600 dark:text-blue-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-              />
-            </svg>
-            <h1 className="text-xl font-bold tracking-tight">HAR Analyzer</h1>
-          </div>
-          <div className="ml-auto">
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+    <PageShell back={{ href: "/", label: "Home" }} crumb="Details" mainClassName="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -449,8 +380,7 @@ function DetailsPageContent() {
             )}
           </>
         )}
-      </main>
-    </div>
+    </PageShell>
   );
 }
 

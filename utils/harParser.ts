@@ -1,4 +1,5 @@
 import { HarFile, HarAnalysis, EntryRecord, HarStore } from "@/types/har";
+import { newBodyId } from "@/utils/bodyId";
 
 export async function parseHarFile(file: File): Promise<HarFile> {
   return new Promise((resolve, reject) => {
@@ -103,7 +104,9 @@ export function analyzeHar(
         .map((h) => parseSetCookieHeader(h.value));
     }
 
-    const responseContent = entry.response?.content?.text;
+    const responseText = entry.response?.content?.text;
+    const hasResponseBody = responseText !== undefined;
+    const bodyId = hasResponseBody ? newBodyId() : undefined;
 
     entries.push({
       url,
@@ -123,7 +126,9 @@ export function analyzeHar(
       responseCookies,
       serverIPAddress,
       userAgent,
-      responseContent,
+      responseContent: responseText,
+      hasResponseBody,
+      bodyId,
       startedDateTime,
     });
 
@@ -156,7 +161,7 @@ export function analyzeHar(
 }
 
 export function buildHarStore(analyses: HarAnalysis[]): HarStore {
-  return { analyses };
+  return { version: 2, analyses };
 }
 
 export function getAllStatusCodes(analyses: HarAnalysis[]): number[] {

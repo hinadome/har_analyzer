@@ -3,7 +3,6 @@
 import { useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { HarAnalysis, EntryRecord } from "@/types/har";
 import { useHarStore } from "@/hooks/useHarStore";
 import { formatBytes, formatTime } from "@/utils/harParser";
@@ -12,6 +11,9 @@ import { isCrossOrigin } from "@/utils/corsAnalysis";
 import StatusBadge from "@/components/StatusBadge";
 import { statusColorClass } from "@/components/StatusBadge";
 import { TIMING_PHASES } from "@/components/timingPhases";
+import { PageShell } from "@/components/shell/PageShell";
+import { EmptyState } from "@/components/shell/EmptyState";
+import { LoadingState } from "@/components/shell/LoadingState";
 
 type SortField =
   | "startedDateTime"
@@ -33,13 +35,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
 
 export default function FileDetailPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center text-slate-600 dark:text-slate-500">
-          Loading...
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingState fullScreen message="Loading…" />}>
       <FileDetailPageContent />
     </Suspense>
   );
@@ -147,28 +143,14 @@ function FileDetailPageContent() {
     "py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 cursor-pointer select-none hover:text-slate-800 dark:text-slate-200 transition-colors";
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center text-slate-600 dark:text-slate-500">
-        Loading...
-      </div>
-    );
+    return <LoadingState fullScreen message="Loading…" />;
   }
 
   if (notFound) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <p className="text-slate-600 dark:text-slate-500 dark:text-slate-400 text-lg">
-            File not found.
-          </p>
-          <Link
-            href="/"
-            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300 underline"
-          >
-            ← Back to upload
-          </Link>
-        </div>
-      </div>
+      <PageShell back={{ href: "/", label: "Home" }} crumb="File">
+        <EmptyState title="File not found." />
+      </PageShell>
     );
   }
   if (!analysis) return null;
@@ -181,52 +163,7 @@ function FileDetailPageContent() {
   );
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
-      <header className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-10 transition-colors">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
-          <Link
-            href="/"
-            className="text-slate-600 dark:text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 transition-colors flex items-center gap-1.5 text-sm"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            Back
-          </Link>
-          <div className="h-5 w-px bg-slate-700" />
-          <div className="flex items-center gap-3">
-            <svg
-              className="w-5 h-5 text-blue-600 dark:text-blue-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-              />
-            </svg>
-            <h1 className="text-xl font-bold tracking-tight">HAR Analyzer</h1>
-          </div>
-          <div className="ml-auto">
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+    <PageShell back={{ href: "/", label: "Home" }} crumb="File">
         {/* Title */}
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 font-mono break-all">
@@ -781,7 +718,6 @@ function FileDetailPageContent() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+    </PageShell>
   );
 }

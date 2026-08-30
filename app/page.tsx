@@ -1,27 +1,52 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import FileUpload from "@/components/FileUpload";
 import ComparisonTable from "@/components/ComparisonTable";
+import { PageShell } from "@/components/shell/PageShell";
+import { LoadingState } from "@/components/shell/LoadingState";
+import { InsightStrip } from "@/components/home/InsightStrip";
 import { HarAnalysis } from "@/types/har";
-import { parseHarFile, analyzeHar, buildHarStore } from "@/utils/harParser";
-import { saveHarStoreAsync, clearHarStoreAsync } from "@/utils/storage";
+import { buildHarStore } from "@/utils/harParser";
+import { parseAndAnalyzeHarFile } from "@/utils/parseHar";
+import {
+  saveHarStoreAsync,
+  clearHarStoreAsync,
+  deleteBodiesAsync,
+  collectBodyIds,
+} from "@/utils/storage";
 import { useHarStore, updateHarStoreCache } from "@/hooks/useHarStore";
 import { analyzeStore } from "@/utils/corsAnalysis";
+import { computeHomeInsights } from "@/utils/homeInsights";
+import {
+  isRedactSecretsEnabled,
+  redactAnalysis,
+} from "@/utils/privacy";
+import { PrivacyBanner } from "@/components/home/PrivacyBanner";
+import { RedactSecretsToggle } from "@/components/home/RedactSecretsToggle";
+
+const toolLinkClass =
+  "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-blue-500/50 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-sm font-medium transition-colors";
 
 export default function HomePage() {
   const { analyses, isLoading: isStoreLoading } = useHarStore();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [parseProgress, setParseProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [metricsOpen, setMetricsOpen] = useState(false);
 
   const isLoading = isStoreLoading || isProcessing;
 
-  // CORS audit summary — drives the pill badge below the file list.
   const corsReport = useMemo(
     () => (analyses.length > 0 ? analyzeStore(analyses) : null),
     [analyses],
+  );
+
+  const insights = useMemo(
+    () =>
+      analyses.length > 0 ? computeHomeInsights(analyses, corsReport) : null,
+    [analyses, corsReport],
   );
 
   const handleFilesSelected = async (files: File[]) => {
@@ -33,11 +58,22 @@ export default function HomePage() {
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const har = await parseHarFile(file);
-        const analysis = analyzeHar(har, file.name, startIndex + i);
+        setParseProgress(
+          `Parsing ${i + 1} of ${files.length}: ${file.name}` +
+            (file.size >= 1024 * 1024
+              ? ` (${(file.size / (1024 * 1024)).toFixed(1)} MB)`
+              : ""),
+        );
+        // Yield so the progress line can paint before a heavy sync parse.
+        await new Promise<void>((r) => setTimeout(r, 0));
+        let analysis = await parseAndAnalyzeHarFile(file, startIndex + i);
+        if (isRedactSecretsEnabled()) {
+          analysis = redactAnalysis(analysis);
+        }
         newAnalyses.push(analysis);
       }
 
+      setParseProgress("Saving…");
       const merged = [...analyses, ...newAnalyses];
       const store = buildHarStore(merged);
       await saveHarStoreAsync(store);
@@ -46,6 +82,7 @@ export default function HomePage() {
       setError(err instanceof Error ? err.message : "Failed to process files");
     } finally {
       setIsProcessing(false);
+      setParseProgress(null);
     }
   };
 
@@ -56,6 +93,10 @@ export default function HomePage() {
   };
 
   const removeFile = async (index: number) => {
+    const removed = analyses[index];
+    if (removed) {
+      await deleteBodiesAsync(collectBodyIds([removed]));
+    }
     const updated = analyses
       .filter((_, i) => i !== index)
       .map((a, i) => ({
@@ -69,252 +110,220 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
-      <header className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur sticky top-0 z-10 transition-colors">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+    <PageShell
+      actions={
+        analyses.length > 0 ? (
+          <button
+            onClick={handleClear}
+            className="text-sm text-slate-600 dark:text-slate-400 hover:text-red-700 dark:hover:text-red-400 transition-colors flex items-center gap-1.5"
+          >
             <svg
-              className="w-7 h-7 text-blue-600 dark:text-blue-400"
+              className="w-4 h-4"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-              />
-            </svg>
-            <h1 className="text-xl font-bold tracking-tight">HAR Analyzer</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            {analyses.length > 0 && (
-              <button
-                onClick={handleClear}
-                className="text-sm text-slate-600 dark:text-slate-400 hover:text-red-700 dark:hover:text-red-400 transition-colors flex items-center gap-1.5"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-                Clear all
-              </button>
-            )}
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        <section>
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">
-            Upload HAR Files
-          </h2>
-          <FileUpload
-            onFilesSelected={handleFilesSelected}
-            isLoading={isLoading}
-          />
-        </section>
-
-        {error && (
-          <div className="rounded-lg bg-red-950/40 border border-red-800/60 px-4 py-3 text-red-700 dark:text-red-300 text-sm flex items-start gap-2">
-            <svg
-              className="w-5 h-5 mt-0.5 shrink-0"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+              aria-hidden
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
               />
             </svg>
-            {error}
-          </div>
-        )}
+            Clear all
+          </button>
+        ) : undefined
+      }
+    >
+      <PrivacyBanner />
 
-        {isLoading && (
-          <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400">
-            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            Parsing HAR files...
-          </div>
-        )}
+      <section>
+        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">
+          Upload HAR Files
+        </h2>
+        <FileUpload
+          onFilesSelected={handleFilesSelected}
+          isLoading={isLoading}
+          progressMessage={parseProgress}
+        />
+        <RedactSecretsToggle disabled={isLoading} />
+      </section>
 
-        {analyses.length > 0 && (
-          <>
-            <section>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-                  Loaded Files
-                </h2>
-                <span className="text-sm text-slate-600 dark:text-slate-500">
-                  {analyses.length} file{analyses.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {analyses.map((a, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm hover:border-blue-600 transition-colors"
-                  >
-                    <Link
-                      href={`/file/${i}`}
-                      className="flex items-center gap-2 min-w-0"
-                    >
-                      <span
-                        className="text-slate-700 dark:text-slate-300 font-mono truncate max-w-[200px]"
-                        title={a.fileName}
-                      >
-                        {a.fileName}
-                      </span>
-                      <span className="text-slate-600 dark:text-slate-500 text-xs shrink-0">
-                        {a.totalRequests.toLocaleString()} reqs
-                      </span>
-                    </Link>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeFile(i);
-                      }}
-                      className="text-slate-600 dark:text-slate-600 hover:text-red-600 dark:text-red-400 transition-colors ml-1 shrink-0"
-                      title="Remove file"
-                    >
-                      <svg
-                        className="w-3.5 h-3.5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </section>
+      {error && (
+        <div className="rounded-lg bg-red-950/40 border border-red-800/60 px-4 py-3 text-red-700 dark:text-red-300 text-sm flex items-start gap-2">
+          <svg
+            className="w-5 h-5 mt-0.5 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            aria-hidden
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          {error}
+        </div>
+      )}
 
-            <section>
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-                  Comparison Summary
-                </h2>
-                <div className="flex items-center gap-2 flex-wrap">
+      {isLoading && (
+        <LoadingState
+          message={parseProgress ?? "Parsing HAR files..."}
+        />
+      )}
+
+      {analyses.length > 0 && insights && (
+        <>
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                Loaded Files
+              </h2>
+              <span className="text-sm text-slate-600 dark:text-slate-500">
+                {analyses.length} file{analyses.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {analyses.map((a, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm hover:border-blue-600 transition-colors"
+                >
                   <Link
-                    href="/performance"
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-blue-600/40 dark:border-blue-400/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 text-sm font-medium transition-colors"
-                    title="Cross-file performance dashboard"
+                    href={`/file/${i}`}
+                    className="flex items-center gap-2 min-w-0"
+                  >
+                    <span
+                      className="text-slate-700 dark:text-slate-300 font-mono truncate max-w-[200px]"
+                      title={a.fileName}
+                    >
+                      {a.fileName}
+                    </span>
+                    <span className="text-slate-600 dark:text-slate-500 text-xs shrink-0">
+                      {a.totalRequests.toLocaleString()} reqs
+                    </span>
+                  </Link>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFile(i);
+                    }}
+                    className="text-slate-600 dark:text-slate-600 hover:text-red-600 dark:hover:text-red-400 transition-colors ml-1 shrink-0"
+                    title="Remove file"
                   >
                     <svg
-                      className="w-4 h-4"
+                      className="w-3.5 h-3.5"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
+                      aria-hidden
                     >
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        strokeWidth={1.8}
-                        d="M3 13l4-4 4 4 6-6m4 0v6m0-6h-6"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
                       />
                     </svg>
-                    Performance Dashboard
-                  </Link>
-                  {analyses.length >= 2 && (
-                    <Link
-                      href="/performance/diff"
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-blue-600/40 dark:border-blue-400/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 text-sm font-medium transition-colors"
-                      title="Side-by-side baseline vs compare deltas"
-                    >
-                      Compare two runs
-                      <span aria-hidden>→</span>
-                    </Link>
-                  )}
-                  {corsReport && corsReport.crossOriginCount > 0 && (
-                    <Link
-                      href="/cors"
-                      className="relative inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-blue-600/40 dark:border-blue-400/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 text-sm font-medium transition-colors"
-                      title={`CORS audit — ${corsReport.errorCount} error${corsReport.errorCount === 1 ? "" : "s"}, ${corsReport.warningCount} warning${corsReport.warningCount === 1 ? "" : "s"}`}
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.8}
-                          d="M12 11c0-1.657-1.343-3-3-3s-3 1.343-3 3v3a2 2 0 002 2h2a2 2 0 002-2v-3zm6 0c0-1.657-1.343-3-3-3s-3 1.343-3 3v3a2 2 0 002 2h2a2 2 0 002-2v-3z"
-                        />
-                      </svg>
-                      CORS Audit
-                      {corsReport.errorCount > 0 && (
-                        <span className="ml-0.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none">
-                          {corsReport.errorCount}
-                        </span>
-                      )}
-                    </Link>
-                  )}
-                  <Link
-                    href="/kv-search"
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-blue-600/40 dark:border-blue-400/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 text-sm font-medium transition-colors"
-                    title="Search headers and cookies across loaded files"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.8}
-                        d="M21 21l-4.35-4.35M10.5 17a6.5 6.5 0 100-13 6.5 6.5 0 000 13z"
-                      />
-                    </svg>
-                    Search Headers/Cookies
-                  </Link>
+                  </button>
                 </div>
-              </div>
-              <p className="text-sm text-slate-600 dark:text-slate-500 mb-4">
-                Click on &quot;Unique URLs&quot;, a status code, a content type,
-                a content size, or a server IP to view detailed breakdowns.
-              </p>
-              <ComparisonTable analyses={analyses} />
-            </section>
-          </>
-        )}
+              ))}
+            </div>
+          </section>
 
-        {!analyses.length && !isLoading && (
-          <div className="text-center py-16 text-slate-600 dark:text-slate-600">
-            <p className="text-lg">
-              Upload one or more HAR files to start analyzing
-            </p>
-            <p className="text-sm mt-2">
-              HAR (HTTP Archive) files can be exported from browser DevTools
-            </p>
-          </div>
-        )}
-      </main>
-    </div>
+          <InsightStrip insights={insights} />
+
+          <section>
+            <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-3">
+              Tools
+            </h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link href="/performance" className={toolLinkClass}>
+                Performance overview
+              </Link>
+              {analyses.length >= 2 && (
+                <Link href="/performance/diff" className={toolLinkClass}>
+                  Pair diff
+                </Link>
+              )}
+              {insights.cors && (
+                <Link href="/cors" className={toolLinkClass}>
+                  CORS
+                  {insights.cors.errorCount > 0 ? (
+                    <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none">
+                      {insights.cors.errorCount}
+                    </span>
+                  ) : insights.cors.warningCount > 0 ? (
+                    <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold leading-none">
+                      {insights.cors.warningCount}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400 font-semibold">
+                      clear
+                    </span>
+                  )}
+                </Link>
+              )}
+              <Link href="/kv-search" className={toolLinkClass}>
+                Search headers/cookies
+              </Link>
+              <Link href="/content-diff" className={toolLinkClass}>
+                Content diff
+              </Link>
+              <Link href="/header-diff" className={toolLinkClass}>
+                Header diff
+              </Link>
+            </div>
+          </section>
+
+          <section>
+            <button
+              type="button"
+              onClick={() => setMetricsOpen((o) => !o)}
+              className="flex items-center gap-2 w-full text-left group"
+              aria-expanded={metricsOpen}
+            >
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors">
+                Full metrics table
+              </h2>
+              <span className="text-slate-500 dark:text-slate-500 text-sm">
+                {metricsOpen ? "Hide" : "Show"}
+              </span>
+              <span
+                className="ml-auto text-slate-500 dark:text-slate-500 text-xs"
+                aria-hidden
+              >
+                {metricsOpen ? "▼" : "▶"}
+              </span>
+            </button>
+            {metricsOpen && (
+              <div className="mt-4 space-y-3">
+                <p className="text-sm text-slate-600 dark:text-slate-500">
+                  Click on &quot;Unique URLs&quot;, a status code, a content
+                  type, a content size, or a server IP to view detailed
+                  breakdowns.
+                </p>
+                <ComparisonTable analyses={analyses} />
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {!analyses.length && !isLoading && (
+        <div className="text-center py-16 text-slate-600 dark:text-slate-600">
+          <p className="text-lg">
+            Upload one or more HAR files to start analyzing
+          </p>
+          <p className="text-sm mt-2">
+            HAR (HTTP Archive) files can be exported from browser DevTools
+          </p>
+        </div>
+      )}
+    </PageShell>
   );
 }

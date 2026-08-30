@@ -131,9 +131,13 @@ export function entryId(e: EntryRecord): string {
 
 /** Returns true when the entry has no diffable text body */
 export function isBinaryEntry(entry: EntryRecord): boolean {
-  if (entry.responseContent === undefined) return true;
   const ct = entry.contentType ?? "";
-  return BINARY_MIME_PREFIXES.some((p) => ct.startsWith(p));
+  if (BINARY_MIME_PREFIXES.some((p) => ct.startsWith(p))) return true;
+  // v2+: explicit capture flag (body may still be cold in IDB)
+  if (entry.hasResponseBody === true) return false;
+  if (entry.hasResponseBody === false) return true;
+  // Legacy / tests: fall back to whether text is present in memory
+  return entry.responseContent === undefined;
 }
 
 // ---------------------------------------------------------------------------

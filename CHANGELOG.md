@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.2.0]
+
+Major UI refresh and internal refactor. Analysis engines are unchanged; pages are thinner, storage scales better, and the home + CORS flows are clearer.
+
+### Added
+
+- **Shared page shell** — `AppHeader`, `PageShell`, `EmptyState`, and `LoadingState` used across all 11 routes; per-file color chips consolidated in `components/shared/fileColors.ts`.
+- **Home insight strip** (`utils/homeInsights.ts`, `components/home/InsightStrip.tsx`) — cheap rollups (requests, errors, size, files) and optional pair deltas without walking entry arrays. Primary CTA: one file → `/file/0`; two or more → `/performance/diff`. Full comparison table collapsed behind **Full metrics table**; **Tools** row links to every analyzer route.
+- **IndexedDB store v2** — hot blob (`har_analyzer_data`, version 2) holds entry metadata only; response bodies persist under `har_analyzer_body:{bodyId}` and load on demand via `useEntryBody` for `/entry`, compare Content tab, and content diff. Legacy single-blob stores migrate on read (re-upload if needed).
+- **Upload progress UI** — file name (and size for multi-MB files) shown in the upload zone and loading state while parsing.
+- **Optional Web Worker parse** (`workers/harParse.worker.ts`, `utils/parseHar.ts`) — feature-flagged for files ≥ 5 MB (`localStorage har_parse_worker=1` or `NEXT_PUBLIC_HAR_PARSE_WORKER=1`); main-thread fallback retained.
+- **`/kv-search` pagination** — results capped at 50 rows per page with prev/next controls and deep-link page jump for `?expand=`.
+- **Privacy controls** — dismissible first-visit banner (`components/home/PrivacyBanner.tsx`); opt-in **Redact credentials before saving** toggle (`utils/privacy.ts`, `components/home/RedactSecretsToggle.tsx`) masks `Authorization`, `Cookie` / `Set-Cookie`, and common token query params before IndexedDB save (off by default).
+- **CORS request inventory** (`CorsRequestsTable` in `components/cors/CorsPanels.tsx`) — paginated table of every cross-origin and preflight entry (type, origin, ACAO, credentialed flag, findings count) with expandable handshake panels. When the audit is clean, this table is shown **above** the empty findings panel so `/cors` is useful even with zero issues.
+- **Extracted route panels** — large JSX moved out of god pages into `components/compare/`, `components/content-diff/`, `components/cors/`, `components/kv-search/`, `components/performance/`, and `components/performance-diff/`.
+- **`npm test`** script — runs `vitest run`.
+- **Test hardening** — preservation/bug tests import real `ComparisonTableCell` and `filterEntriesBySearch`; RTL smokes for home, shell, kv-search, cors, perf-diff, and content-diff landmarks. 239 tests at time of release.
+
+### Changed
+
+- **Home CORS chip copy** — severity-aware: red **CORS audit — N errors**, amber **CORS — N warnings**, neutral **N cross-origin requests — all clear** (no longer amber-alert when clean). Tools link shows error/warning badges or a **clear** label.
+- **`/cors` page title** — renamed from "CORS Audit" to **CORS**; subtitle describes audit + inventory. Clean-state findings panel points users to the request inventory below (or above when promoted).
+- **`FileUpload`** — accepts optional `progressMessage` while parsing.
+- **`app/details/page.tsx`** — search filter extracted to `utils/entrySearch.ts` (`filterEntriesBySearch`).
+- **`DEPLOYMENT.md`** — 0.2.0 deploy guide: client-only architecture, pre-deploy `npm test`, worker chunks under `.next/static/`, `NEXT_PUBLIC_HAR_PARSE_WORKER` build arg, post-deploy smoke checklist (home insight, CORS inventory, privacy controls).
+- **`deploy-vm.sh`** — runs `npm test` before build; documents worker static copy; post-deploy smoke hints; honours `NEXT_PUBLIC_HAR_PARSE_WORKER` at build time when exported.
+- **`Dockerfile` / `docker-compose.yml`** — optional `NEXT_PUBLIC_HAR_PARSE_WORKER` build arg.
+- **`spec.md`** — synced for 0.2.0: home insight strip / Tools row, IndexedDB v2, privacy + worker flags, CORS inventory page, kv-search pagination, `PageShell`, updated data-flow and NFR sections.
+
+### Internal (no intentional behavior change)
+
+- `REFACTOR_PLAN.md` — execution log for phases 0–5 (shell, page splits, home insight, store v2, worker, privacy, tests).
+- Bodies stripped from hot IndexedDB blob on save; `EntryRecord` gains `hasResponseBody` and `bodyId`.
+
 ## [0.1.5]
 
 ### Added
