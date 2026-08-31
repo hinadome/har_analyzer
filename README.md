@@ -47,22 +47,20 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 1. **Upload HAR files** — drag one or more `.har` files onto the upload zone, or click to open the file picker. Files can be added incrementally. Parse progress shows the current file name while processing. Optionally enable **Redact credentials before saving** to mask sensitive headers and query params before data is written to IndexedDB.
 2. **Review the insight strip** — see total requests, errors (4xx/5xx/0), total size, and file count at a glance. With two files loaded, headline pair deltas link straight to `/performance/diff`. A CORS chip appears when cross-origin traffic exists: red for errors, amber for warnings only, neutral green-ish "all clear" when traffic passed audit.
-3. **Open a tool** — use the Tools row (Performance overview, Pair diff, CORS, kv-search, Content diff, Header diff) or the primary CTA (single file → file performance; two files → pair diff).
+3. **Open a tool** — use the Tools row (Performance overview, Pair diff, CORS, kv-search, Entry diff) or the primary CTA (single file → file performance; two files → pair diff).
 4. **Drill into details** — expand "Full metrics table" on the home page, or click any status code, the "Unique URLs" row, any HTTP method, any content type label, or any content size range to open a details page filtered to that dimension.
 5. **Inspect per-file performance** — click a file name chip or the file detail link to see P50/P95/P99 latency, slowest requests, largest resources, and an average timing breakdown across all requests.
 6. **See the cross-file performance overview** — open `/performance` from Tools to lay every loaded file out side by side: KPI matrix, timing-phase comparison, shared-axis distribution histogram, per-content-type table, and combined Slowest/Largest top lists.
 7. **Compare two specific runs head-to-head** — when at least two files are loaded, use **Compare two runs** (insight strip or performance dashboard) to open `/performance/diff`. Pick a baseline and compare file, toggle Path / Full URL matching, and review headline KPI Δs, per-phase timing Δs, an overlaid histogram, per-content-type Δs, biggest movers, regressions/improvements, and unique-URL listings.
 8. **Compare a URL across files** — from the URL detail view, click any URL to open the compare page. Expand any request row to see its headers, cookies, a **Timing** tab showing phase-by-phase breakdown (DNS, TCP connect, SSL, send time, TTFB, and receive time), and a **Content** tab displaying the exact text payload of the response.
-9. **Diff response bodies** — open **Content diff** from Tools (or `/content-diff`). Type a pathname such as `/hello` and select it. The banner shows **Selected path** `/hello`. The table lists every entry whose pathname is `/hello` on **any** host, regardless of query string, for example:
-   - `https://diag-iron.dnslab.webtechnologists.net/hello`
-   - `https://echo-server-eta-blue.vercel.app/hello`
-   - `https://echo-server-eta-blue.vercel.app/hello?foo=1` (same path; query ignored)
-   Pick baseline and compare to diff the bodies. Rows with **no body** mean `response.content.text` was missing in the HAR (size may still show, e.g. redirects); re-export **with content** to diff. **binary** means a non-text MIME type. Enable **Match full URL** only when you need an exact URL **including** query.
-10. **Diff headers and cookies** — open **Header diff** from Tools (or `/header-diff`); same pathname selection as content diff. Pick baseline and compare; the diff panel shows four uniform section cards (request vs response side by side on wide screens). Each card lists headers or cookies with `−` / `+` / `~` row styling when values differ.
-11. **Review CORS** — when cross-origin requests exist, open **CORS** from the insight strip or Tools. Filter by file scope, severity, or request Origin. When findings exist, the issues table is shown first; when the audit is clean, the **CORS requests** inventory is promoted so you can browse origins, ACAO, and handshake headers without an empty dead-end.
-12. **Search headers and cookies** — open **Search headers/cookies** from Tools (or the per-file link in `/file/[index]`) to open `/kv-search`. Enter a name, value, or URL fragment; pick a mode and scope; paginate through results and expand rows for highlighted matches.
-13. **Inspect a single request in depth** — click any URL in the per-file entry list, the "Detail →" link in `/compare`'s expand panel, the expanded URL in a `/kv-search` result, or any of the `/cors` deep links to open `/entry/[file]/[index]`.
-14. **Remove or clear files** — click the × on a file chip to remove it, or use "Clear all" in the header to reset local IndexedDB data.
+9. **Diff headers and response bodies** — open **Entry diff** from Tools (or `/entry-diff`). Type a pathname such as `/hello` and select it. The banner shows **Selected path** `/hello`. The table lists every entry whose pathname is `/hello` on **any** host, regardless of query string. Pick baseline and compare, then switch **Headers | Content** tabs:
+   - **Headers** — four section cards (request/response headers and cookies) in a 2×2 grid with `−` / `+` / `~` row styling when values differ. Tab chip shows `identical` or `N changes`.
+   - **Content** — line-by-line body diff (unified or side-by-side). Rows with **no body** mean `response.content.text` was missing in the HAR; **binary** means a non-text MIME type. Tab chip shows `identical`, `diff`, `binary`, or `no body`. Bodies load only on the Content tab.
+   Enable **Match full URL** only when you need an exact URL **including** query.
+10. **Review CORS** — when cross-origin requests exist, open **CORS** from the insight strip or Tools. Filter by file scope, severity, or request Origin. When findings exist, the issues table is shown first; when the audit is clean, the **CORS requests** inventory is promoted so you can browse origins, ACAO, and handshake headers without an empty dead-end.
+11. **Search headers and cookies** — open **Search headers/cookies** from Tools (or the per-file link in `/file/[index]`) to open `/kv-search`. Enter a name, value, or URL fragment; pick a mode and scope; paginate through results and expand rows for highlighted matches.
+12. **Inspect a single request in depth** — click any URL in the per-file entry list, the "Detail →" link in `/compare`'s expand panel, the expanded URL in a `/kv-search` result, or any of the `/cors` deep links to open `/entry/[file]/[index]`.
+13. **Remove or clear files** — click the × on a file chip to remove it, or use "Clear all" in the header to reset local IndexedDB data.
 
 ### Large HAR files
 
@@ -116,8 +114,9 @@ har_analyzer/
 │   │   ├── page.tsx
 │   │   └── diff/page.tsx
 │   ├── compare/page.tsx
-│   ├── content-diff/page.tsx
-│   ├── header-diff/page.tsx
+│   ├── entry-diff/page.tsx     # Headers + Content tabs (canonical)
+│   ├── content-diff/page.tsx   # → redirects to /entry-diff?section=content
+│   ├── header-diff/page.tsx    # → redirects to /entry-diff?section=headers
 │   ├── kv-search/page.tsx
 │   ├── cors/page.tsx
 │   └── entry/[file]/[index]/page.tsx
@@ -125,7 +124,8 @@ har_analyzer/
 │   ├── shell/                  # Shared chrome: AppHeader, PageShell, EmptyState, LoadingState
 │   ├── home/                   # InsightStrip, PrivacyBanner, RedactSecretsToggle
 │   ├── compare/                # ComparePanels (PerFileRow, expand tabs, …)
-│   ├── content-diff/           # ContentDiffPanels
+│   ├── entry-diff/             # EntryPickTable, tabs, metadata, content panel
+│   ├── content-diff/           # ContentDiffPanels (shared with entry-diff)
 │   ├── cors/                   # CorsPanels (KPI, issues, CORS requests inventory, pairs)
 │   ├── kv-search/              # KvSearchPanels (paginated results)
 │   ├── performance/            # Performance overview panels

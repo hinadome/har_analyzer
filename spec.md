@@ -164,8 +164,9 @@ Horizontal link group (always visible when data is loaded):
 | Pair diff | `/performance/diff` when ≥ 2 files |
 | CORS | `/cors` when cross-origin traffic exists; badge = error count, warning count, or **clear** label |
 | Search headers/cookies | `/kv-search` |
-| Content diff | `/content-diff` |
-| Header diff | `/header-diff` |
+| Entry diff | `/entry-diff` |
+| Content diff (legacy) | `/content-diff` → redirects to `/entry-diff?section=content` |
+| Header diff (legacy) | `/header-diff` → redirects to `/entry-diff?section=headers` |
 
 ### 3.4 Comparison table (collapsible)
 
@@ -320,33 +321,15 @@ Displays all recorded entries for a specific URL grouped by HAR file, enabling c
 
 **All-entries flat table**: Below the per-file sections, a sortable paginated table lists every entry for the URL across all files with columns for HAR file, start time, status, content type, size, and time.
 
-### 4.8 Content Diff page (`/content-diff?url={encoded}`)
+### 4.8 Entry Diff page (`/entry-diff?url={encoded}&section={headers|content}`)
 
-Enables response body comparison between any two entries that share the same **pathname** (e.g. `/hello`), **across hosts**. Exact full-URL matching is an optional escape hatch. Content Diff and Header Diff share `UrlPathPicker` and `useUrlPathSelection`.
+Unified comparison of **headers/cookies** and **response bodies** between any two entries that share the same **pathname** (e.g. `/hello`), **across hosts**. Exact full-URL matching is an optional escape hatch. Uses `UrlPathPicker`, `useUrlPathSelection`, and `useEntryDiffSelection`.
 
-**URL / path search:**
+**Tabs:** **Headers | Content** with status chips (`identical`, `N changes`, `diff`, `binary`, `no body`, etc.). Default tab when `?section=` is omitted: **Headers** if header/cookie diff has changes, otherwise **Content**. Response bodies load from cold storage only when the **Content** tab is active.
 
-- Label: **Search by path**. Placeholder: `e.g. /hello`.
-- Free-text input with live filtering against all unique URLs in the loaded HAR data (case-insensitive substring on the full URL **or** its pathname). Typing `/hello` surfaces every URL whose pathname contains `/hello`.
-- **Path-first (default)** — dropdown groups by **pathname** only (`pathKey()` = `URL.pathname`, e.g. `/hello`). Selecting a group (or a deep-linked `?url=`) normalizes to that pathname. Banner: **Selected path** plus hint “all hosts with this pathname”. Indented sub-items list full URLs (including query); picking a sub-item still selects the pathname.
-- **Match full URL** checkbox — each full URL is its own candidate; entry matching is exact (including query). Banner: **Selected URL**. Turning the checkbox off re-normalizes the current selection to its pathname.
-- Pre-populated from the `?url=` query parameter when navigating from the compare page; in path mode the param is normalized with `pathKey()` (pathname only) on load.
-- Enter selects the first matching group in the dropdown.
+Legacy routes `/content-diff` and `/header-diff` redirect here with `?section=content` or `?section=headers`.
 
-**Query string handling:**
-
-| Mode | Selection key | Entries included | Display |
-| ---- | ------------- | ---------------- | ------- |
-| Path (default) | Pathname only (`/hello`). Query and fragment are dropped. | Every entry with that pathname on **any** host, **any** query | Full URL including query on each row |
-| Match full URL | Entire URL string | Only `entry.url === selected` | Full URL including query |
-
-Search can still *filter the dropdown* by a query substring (the needle matches the full URL string), but once a path is selected, matching ignores query.
-
-Example: selected path `/hello` includes all of:
-
-- `https://diag-iron.dnslab.webtechnologists.net/hello`
-- `https://echo-server-eta-blue.vercel.app/hello`
-- `https://echo-server-eta-blue.vercel.app/hello?foo=1`
+**URL / path search:** same rules as prior content/header diff (§4.8–4.9 in v0.2.0): pathname-first dropdown, query ignored in path mode, **Match full URL** escape hatch, `?url=` deep links normalized via `pathKey()`.
 
 **Entry table columns:**
 
@@ -359,61 +342,22 @@ Example: selected path `/hello` includes all of:
 | Status          | Color-coded status badge                                           |
 | Content Type    | Normalized MIME type                                               |
 | Size            | Human-readable response body size                                  |
+| Req/Res Headers | Count of request headers / response headers (right-aligned)        |
+| Req/Res Cookies | Count of request cookies / response cookies (right-aligned)        |
 | Timestamp (UTC) | `startedDateTime` formatted as UTC                                 |
-| —               | Optional badge: **binary** (non-text MIME) or **no body** (`response.content.text` missing; tooltip notes wire size when `content.size` > 0) |
+| Body            | Optional badge: **binary** or **no body** (see body capture table below) |
 
-Each request within a single HAR file is a separate row. Row keys use `entryId()` → `{harFileIndex}::{indexInFile}` so duplicate URL + timestamp pairs do not collide.
+Row keys use `entryId()` → `{harFileIndex}::{indexInFile}`.
 
 **Body capture vs display:**
 
-| Signal in HAR | `hasResponseBody` | Content Diff badge | Line diff? |
-| --------------- | ----------------- | ------------------ | ---------- |
+| Signal in HAR | `hasResponseBody` | Badge | Line diff? |
+| --------------- | ----------------- | ----- | ---------- |
 | `content.text` present (may be `""`) | `true` | — | Yes (if not binary MIME) |
-| No `content.text`, any MIME (e.g. `text/plain` redirect, `content-length: 0`) | `false` | **no body** | No — hash panel or “not captured” message |
+| No `content.text`, any MIME | `false` | **no body** | No — hash panel or “not captured” message |
 | Binary MIME (`image/`, `video/`, `pdf`, …) | either | **binary** | No — hash panel when body captured |
 
-`content.size` and `Content-Length` are shown in the Size column but do **not** imply `content.text` was exported.
-
-**Diff panel** (shown when two different entries are selected):
-
-| Element                 | Behaviour                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Metadata bar            | Shows both selected entries (file name, URL, status, timestamp) side by side above the diff                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Mode toggle             | Switch between Unified and Side-by-Side diff layouts; defaults to Unified                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Identical banner        | Green banner shown when both response bodies match exactly                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| JSON prettified label   | Shown when `application/json` or `+json` content was auto-formatted before diffing                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Truncation notice       | Amber notice per entry when body exceeds 50,000 characters; "Show full content" / "Show less" toggle per entry                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Unified diff            | Single scrollable panel; removed lines in red with `−` prefix, added lines in green with `+` prefix; line numbers in gutter                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Side-by-side diff       | Two panels (Baseline left, Compare right); placeholder rows maintain alignment; line numbers in each gutter                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Intra-line highlighting | Changed lines show character/word-level spans highlighting the exact text that was added or removed                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| Binary / no-body fallback | When line diff is unavailable (binary MIME or no captured `content.text`): contextual intro (both missing vs binary vs mixed), byte sizes, and SHA-256 hashes when bodies exist in storage. Banners: **Identical (matching SHA-256)**, **Different (SHA-256 mismatch)**, **Computing SHA-256…**, **No body captured for {baseline \| compare \| either entry}**, or **Hash error: …**; no line-by-line diff |
-
-### 4.9 Header Diff page (`/header-diff?url={encoded}`)
-
-Enables comparison of request/response headers and cookies between any two entries that share the same **pathname** (across hosts), with optional exact full-URL matching. Follows the same URL / path search, query-string rules, and entry selection as the Content Diff page (§4.8).
-
-**URL search and entry selection:** identical to §4.8 — shared `UrlPathPicker` / `useUrlPathSelection`, pathname-grouped dropdown, query ignored in path mode, **Match full URL** escape hatch, pre-population from `?url=` (normalized to pathname in path mode).
-
-**Entry table columns:**
-
-| Column          | Notes                                       |
-| --------------- | ------------------------------------------- |
-| Baseline        | Radio button (centered column)              |
-| Compare         | Radio button (centered column)              |
-| HAR File        | File name (font-mono, truncated)            |
-| URL             | Full URL; links to `/compare?url={encoded}` |
-| Status          | Color-coded status badge                    |
-| Req/Res Headers | Count of request headers / response headers (right-aligned) |
-| Req/Res Cookies | Count of request cookies / response cookies (right-aligned) |
-| Timestamp (UTC) | `startedDateTime` formatted as UTC          |
-
-**Diff panel** (shown when two different entries are selected):
-
-| Element            | Behaviour                                                                                   |
-| ------------------ | ------------------------------------------------------------------------------------------- |
-| Metadata bar       | Shows both selected entries (file name, URL, status, timestamp) side by side above the diff |
-| Identical banner   | Green banner when all four sections match exactly                                           |
-| Four diff sections | **2×2 card grid** (`HeaderDiffView`): Request Headers \| Response Headers on the first row, Request Cookies \| Response Cookies on the second (single column on narrow viewports). Each card has a header row (section title + status badge: `empty`, `identical`, or `N changes`) and a body with either **None** (italic, inside the card) or a bordered diff table |
+**Headers tab** (when two different entries are selected): metadata bar; green identical banner when all four sections match; `HeaderDiffView` 2×2 card grid (Request/Response Headers + Cookies).
 
 **Key-value diff table** (one per section card; `table-fixed` with Name / Baseline / Compare columns):
 
@@ -424,11 +368,13 @@ Enables comparison of request/response headers and cookies between any two entri
 | Amber background, `~` prefix | Present in both but value changed; baseline value shown with strikethrough, compare value in green |
 | No highlight                 | Equal in both entries                                                                              |
 
-**Diffing rules:**
+Header names are compared case-insensitively; values case-sensitively. Duplicate header names are matched positionally.
 
-- Header names are compared case-insensitively (per HTTP spec); values are compared case-sensitively.
-- When a header name appears multiple times on one side, occurrences are matched positionally against the same-named occurrences on the other side.
-- Extra occurrences on either side are shown as added or removed.
+**Content tab:** metadata bar shared above tabs; mode toggle (Unified / Side-by-Side); identical banner; JSON prettified label; truncation notices; unified or side-by-side diff; binary / no-body SHA-256 fallback panel when line diff is unavailable.
+
+### 4.9 Header Diff / Content Diff (legacy redirects)
+
+`/header-diff` and `/content-diff` are client pages that `router.replace` once to `/entry-diff` with `?section=headers` or `?section=content`, preserving existing query params. Tab switching on `/entry-diff` is local state and does not rewrite the URL.
 
 ### 4.10 Cross-file Performance Dashboard (`/performance`)
 

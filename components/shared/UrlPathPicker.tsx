@@ -20,7 +20,7 @@ export interface UrlPathPickerProps {
 
 /**
  * Shared search + path/exact toggle + grouped dropdown + selection banner
- * used by content-diff and header-diff.
+ * used by entry-diff.
  */
 export function UrlPathPicker({
   urlInput,

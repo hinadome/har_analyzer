@@ -33,7 +33,7 @@ export interface UseUrlPathSelectionResult {
 }
 
 /**
- * Pathname-first URL/path selection state shared by content-diff and header-diff.
+ * Pathname-first URL/path selection state shared by entry-diff (and legacy redirects).
  * Default: select `/hello` and load entries from every host with that pathname.
  */
 export function useUrlPathSelection({

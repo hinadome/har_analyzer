@@ -19,9 +19,10 @@ Manual smoke after deploy (see [Post-deploy verification](#post-deploy-verificat
 1. Open `/` — privacy banner (first visit), upload zone, optional redaction toggle
 2. Upload a sample HAR — insight strip, Tools row, primary CTA
 3. If the capture has cross-origin traffic — `/cors` shows KPIs + **CORS requests** inventory even when findings are zero
-4. Open `/content-diff` — search a pathname (e.g. `/hello`); confirm **Selected path** and multi-host entries (query ignored). Same flow on `/header-diff`
-5. On `/header-diff`, pick two entries — four section cards (**Request Headers**, **Response Headers**, **Request Cookies**, **Response Cookies**) in a 2×2 grid with matching layout and status badges
-6. Optional: enable worker parse and upload a ≥ 5 MB HAR (see [Build-time options](#build-time-options))
+4. Open `/entry-diff` — search a pathname (e.g. `/hello`); confirm **Selected path** and multi-host entries. Pick baseline + compare; switch **Headers | Content** tabs (status chips on each tab)
+5. **Headers** tab — four section cards in a 2×2 grid; **Content** tab — body diff or **no body** / **binary** badges; no duplicate-key console errors
+6. Legacy `/content-diff` and `/header-diff` redirect with `?section=` preserved
+7. Optional: enable worker parse and upload a ≥ 5 MB HAR (see [Build-time options](#build-time-options))
 
 ---
 
@@ -204,8 +205,8 @@ After Docker or VM deploy, confirm the **0.2.0** UI and assets load correctly:
 | Upload | Progress line shows file name while parsing; data persists across refresh (IndexedDB v2) |
 | Insight strip | Request/error/size totals; **Tools** row; comparison table behind **Full metrics table** |
 | CORS `/cors` | Page title **CORS** (not "CORS Audit"); when cross-origin traffic exists but audit is clean, **CORS requests** table lists entries (not an empty dead-end) |
-| Content diff `/content-diff` | Search a pathname; **Selected path** banner; multi-host entries. Rows: **binary** vs **no body** badges (not both for `text/plain` without `content.text`). No React duplicate-key warnings when the same URL repeats in one file |
-| Header diff `/header-diff` | After selecting baseline and compare: four section cards in a **2×2 grid** (Request Headers | Response Headers, Request Cookies | Response Cookies); each card has title + `empty` / `identical` / `N changes` badge; empty sections show **None** inside the card |
+| Entry diff `/entry-diff` | Search a pathname; **Selected path** banner; unified entry table. **Headers | Content** tabs with status chips. Headers: 2×2 section cards. Content: body diff or **no body** / **binary** badges. Bodies load only on Content tab. No duplicate-key console errors |
+| Legacy redirects | `/content-diff` → `?section=content`; `/header-diff` → `?section=headers` |
 | Static assets | No 404s for `/_next/static/chunks/*` in browser devtools (if chunks 404, the standalone static copy step was skipped or the dest path was wrong — must be `.next/standalone/.next/static/`) |
 | Worker (optional) | With worker enabled, upload a large HAR — parse completes; if worker chunk 404s, app falls back to main-thread parse (check console) |
 
