@@ -387,13 +387,13 @@ Enables comparison of request/response headers and cookies between any two entri
 
 | Column          | Notes                                       |
 | --------------- | ------------------------------------------- |
-| Baseline        | Radio button                                |
-| Compare         | Radio button                                |
+| Baseline        | Radio button (centered column)              |
+| Compare         | Radio button (centered column)              |
 | HAR File        | File name (font-mono, truncated)            |
 | URL             | Full URL; links to `/compare?url={encoded}` |
 | Status          | Color-coded status badge                    |
-| Req/Res Headers | Count of request headers / response headers |
-| Req/Res Cookies | Count of request cookies / response cookies |
+| Req/Res Headers | Count of request headers / response headers (right-aligned) |
+| Req/Res Cookies | Count of request cookies / response cookies (right-aligned) |
 | Timestamp (UTC) | `startedDateTime` formatted as UTC          |
 
 **Diff panel** (shown when two different entries are selected):
@@ -402,9 +402,9 @@ Enables comparison of request/response headers and cookies between any two entri
 | ------------------ | ------------------------------------------------------------------------------------------- |
 | Metadata bar       | Shows both selected entries (file name, URL, status, timestamp) side by side above the diff |
 | Identical banner   | Green banner when all four sections match exactly                                           |
-| Four diff sections | Request Headers, Response Headers, Request Cookies, Response Cookies                        |
+| Four diff sections | **2×2 card grid** (`HeaderDiffView`): Request Headers \| Response Headers on the first row, Request Cookies \| Response Cookies on the second (single column on narrow viewports). Each card has a header row (section title + status badge: `empty`, `identical`, or `N changes`) and a body with either **None** (italic, inside the card) or a bordered diff table |
 
-**Key-value diff table** (one per section):
+**Key-value diff table** (one per section card; `table-fixed` with Name / Baseline / Compare columns):
 
 | Row style                    | Meaning                                                                                            |
 | ---------------------------- | -------------------------------------------------------------------------------------------------- |

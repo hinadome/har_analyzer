@@ -66,6 +66,7 @@ if [[ "${1:-}" == "--update" ]]; then
   echo ""
   echo "  Smoke test: upload a HAR at /, open /cors if cross-origin traffic exists."
   echo "  Content diff: /content-diff — search /hello, confirm Selected path + multi-host entries."
+  echo "  Header diff:  /header-diff — four section cards in 2x2 grid after picking baseline + compare."
   echo "  Optional worker: export NEXT_PUBLIC_HAR_PARSE_WORKER=1 before rebuild."
   exit 0
 fi
@@ -173,5 +174,6 @@ echo ""
 echo "  Smoke test: open /, upload a HAR, check insight strip + Tools row."
 echo "  CORS:       /cors should list cross-origin requests even when audit is clean."
 echo "  Content:    /content-diff — search /hello → Selected path; entries across hosts."
+echo "  Header:     /header-diff — 2x2 section cards (Req/Res Headers + Cookies)."
 echo "  Worker:     export NEXT_PUBLIC_HAR_PARSE_WORKER=1 && bash $APP_DIR/deploy-vm.sh --update"
 echo "  See DEPLOYMENT.md for full post-deploy verification checklist."

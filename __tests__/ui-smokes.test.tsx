@@ -202,7 +202,7 @@ describe("shared UrlPathPicker", () => {
         selectedUrl={null}
       />,
     );
-    expect(screen.getByText(/Search URL or path/i)).toBeInTheDocument();
+    expect(screen.getByText(/Search by path/i)).toBeInTheDocument();
     expect(screen.getByText(/Match full URL/i)).toBeInTheDocument();
   });
 });

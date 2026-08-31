@@ -17,7 +17,7 @@ Major UI refresh and internal refactor. Analysis engines are unchanged; pages ar
 - **Shared URL/path picker** — `components/shared/UrlPathPicker.tsx` + `hooks/useUrlPathSelection.ts` used by `/content-diff` and `/header-diff`.
 - **Extracted route panels** — large JSX moved out of god pages into `components/compare/`, `components/content-diff/`, `components/cors/`, `components/kv-search/`, `components/performance/`, and `components/performance-diff/`.
 - **`npm test`** script — runs `vitest run`.
-- **Test hardening** — preservation/bug tests import real `ComparisonTableCell` and `filterEntriesBySearch`; RTL smokes for home, shell, kv-search, cors, perf-diff, and content-diff landmarks. 239 tests at time of release.
+- **Test hardening** — preservation/bug tests import real `ComparisonTableCell` and `filterEntriesBySearch`; RTL smokes for home, shell, kv-search, cors, perf-diff, and content-diff landmarks; `HeaderDiffView` layout tests. 250+ tests at time of release.
 
 ### Changed
 
@@ -25,13 +25,14 @@ Major UI refresh and internal refactor. Analysis engines are unchanged; pages ar
 - **`/cors` page title** — renamed from "CORS Audit" to **CORS**; subtitle describes audit + inventory. Clean-state findings panel points users to the request inventory below (or above when promoted).
 - **`FileUpload`** — accepts optional `progressMessage` while parsing.
 - **`app/details/page.tsx`** — search filter extracted to `utils/entrySearch.ts` (`filterEntriesBySearch`).
-- **`DEPLOYMENT.md`** — 0.2.0 deploy guide: client-only architecture, pre-deploy `npm test`, worker chunks under `.next/static/`, `NEXT_PUBLIC_HAR_PARSE_WORKER` build arg, post-deploy smoke checklist (home insight, CORS inventory, privacy controls, content/header-diff pathname selection).
+- **`DEPLOYMENT.md`** — 0.2.0 deploy guide: client-only architecture, pre-deploy `npm test`, worker chunks under `.next/static/`, `NEXT_PUBLIC_HAR_PARSE_WORKER` build arg, post-deploy smoke checklist (home insight, CORS inventory, privacy controls, content/header-diff pathname selection, header-diff 2×2 section layout).
 - **`deploy-vm.sh`** — runs `npm test` before build; copies static assets to `.next/standalone/.next/static/` (matches Dockerfile); post-deploy smoke hints including content-diff; honours `NEXT_PUBLIC_HAR_PARSE_WORKER` at build time when exported.
 - **`Dockerfile` / `docker-compose.yml`** — optional `NEXT_PUBLIC_HAR_PARSE_WORKER` build arg.
 - **`spec.md`** — synced for 0.2.0: home insight strip / Tools row, IndexedDB v2, privacy + worker flags, CORS inventory page, kv-search pagination, `PageShell`, pathname-first content/header diff, updated data-flow and NFR sections.
 - **Content Diff / Header Diff pathname selection** — default match is **pathname only** (not origin + path), so `/hello` on different hosts is one set. Query strings and fragments are ignored for grouping and entry matching; rows still **display** the full URL including query. Shared `UrlPathPicker` + `useUrlPathSelection`; banner **Selected path**; `?url=` deep links normalize via `pathKey()`. **Match full URL** remains the escape hatch (exact URL including query).
 
   Example: search `/hello` → selected path `/hello` → entries include both `https://diag-iron.dnslab.webtechnologists.net/hello` and `https://echo-server-eta-blue.vercel.app/hello` (and any `?query` variants of those paths).
+- **Header Diff diff panel layout** — Request Headers, Response Headers, Request Cookies, and Response Cookies now use matching card shells in a **2×2 grid** (request vs response side by side on large screens). Each section has a consistent header (title + `empty` / `identical` / `N changes` badge), padded body, and fixed-column diff table; empty sections show **None** inside the card instead of unstyled text. Entry table column alignment matches Content Diff (centered Baseline/Compare radios, right-aligned count columns).
 
 ### Internal (no intentional behavior change)
 

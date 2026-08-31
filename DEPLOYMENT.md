@@ -20,7 +20,8 @@ Manual smoke after deploy (see [Post-deploy verification](#post-deploy-verificat
 2. Upload a sample HAR — insight strip, Tools row, primary CTA
 3. If the capture has cross-origin traffic — `/cors` shows KPIs + **CORS requests** inventory even when findings are zero
 4. Open `/content-diff` — search a pathname (e.g. `/hello`); confirm **Selected path** and multi-host entries (query ignored). Same flow on `/header-diff`
-5. Optional: enable worker parse and upload a ≥ 5 MB HAR (see [Build-time options](#build-time-options))
+5. On `/header-diff`, pick two entries — four section cards (**Request Headers**, **Response Headers**, **Request Cookies**, **Response Cookies**) in a 2×2 grid with matching layout and status badges
+6. Optional: enable worker parse and upload a ≥ 5 MB HAR (see [Build-time options](#build-time-options))
 
 ---
 
@@ -204,6 +205,7 @@ After Docker or VM deploy, confirm the **0.2.0** UI and assets load correctly:
 | Insight strip | Request/error/size totals; **Tools** row; comparison table behind **Full metrics table** |
 | CORS `/cors` | Page title **CORS** (not "CORS Audit"); when cross-origin traffic exists but audit is clean, **CORS requests** table lists entries (not an empty dead-end) |
 | Content diff `/content-diff` | Search a pathname (e.g. `/hello`); banner shows **Selected path**; entry list includes every host with that pathname (query ignored). Same picker on `/header-diff` |
+| Header diff `/header-diff` | After selecting baseline and compare: four section cards in a **2×2 grid** (Request Headers | Response Headers, Request Cookies | Response Cookies); each card has title + `empty` / `identical` / `N changes` badge; empty sections show **None** inside the card |
 | Static assets | No 404s for `/_next/static/chunks/*` in browser devtools (if chunks 404, the standalone static copy step was skipped or the dest path was wrong — must be `.next/standalone/.next/static/`) |
 | Worker (optional) | With worker enabled, upload a large HAR — parse completes; if worker chunk 404s, app falls back to main-thread parse (check console) |
 

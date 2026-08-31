@@ -178,7 +178,9 @@ function HeaderDiffPageContent() {
               <div className="space-y-3">
                 <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">
                   Entries
-                  <span className="ml-2 text-sm font-normal text-slate-500">{urlEntries.length} total</span>
+                  <span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-500">
+                    {urlEntries.length} total
+                  </span>
                 </h2>
 
                 {urlEntries.length === 1 && (
@@ -191,11 +193,30 @@ function HeaderDiffPageContent() {
                   <table className="w-full border-collapse">
                     <thead>
                       <tr>
-                        {['Baseline', 'Compare', 'HAR File', 'URL', 'Status', 'Req/Res Headers', 'Req/Res Cookies', 'Timestamp (UTC)'].map((h) => (
-                          <th key={h} className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 whitespace-nowrap">
-                            {h}
-                          </th>
-                        ))}
+                        <th className="py-3 px-4 text-center text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 whitespace-nowrap">
+                          Baseline
+                        </th>
+                        <th className="py-3 px-4 text-center text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 whitespace-nowrap">
+                          Compare
+                        </th>
+                        <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 whitespace-nowrap">
+                          HAR File
+                        </th>
+                        <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 whitespace-nowrap">
+                          URL
+                        </th>
+                        <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 whitespace-nowrap">
+                          Status
+                        </th>
+                        <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 whitespace-nowrap">
+                          Req/Res Headers
+                        </th>
+                        <th className="py-3 px-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 whitespace-nowrap">
+                          Req/Res Cookies
+                        </th>
+                        <th className="py-3 px-4 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-900/60 whitespace-nowrap">
+                          Timestamp (UTC)
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
