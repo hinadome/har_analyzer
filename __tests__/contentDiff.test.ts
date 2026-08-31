@@ -9,6 +9,12 @@ import { describe, it, expect } from "vitest";
 import * as fc from "fast-check";
 import {
   isBinaryEntry,
+  isBinaryMimeType,
+  hasCapturedResponseBody,
+  hasNoCapturedBody,
+  getContentDiffEntryBadge,
+  noCapturedBodyHint,
+  contentDiffFallbackMessage,
   prettifyIfJson,
   truncateBody,
   entryId,
@@ -43,6 +49,7 @@ function makeEntry(overrides: Partial<EntryRecord> = {}): EntryRecord {
     timings: { send: 1, wait: 50, receive: 49 },
     harFileName: "test.har",
     harFileIndex: 0,
+    indexInFile: 0,
     requestHeaders: [],
     responseHeaders: [],
     requestCookies: [],
@@ -60,8 +67,12 @@ function makeEntry(overrides: Partial<EntryRecord> = {}): EntryRecord {
 // ---------------------------------------------------------------------------
 
 describe("isBinaryEntry", () => {
-  it("returns true when responseContent is undefined", () => {
-    expect(isBinaryEntry(makeEntry({ responseContent: undefined }))).toBe(true);
+  it("returns true when response body was not captured", () => {
+    expect(
+      isBinaryEntry(
+        makeEntry({ responseContent: undefined, hasResponseBody: false }),
+      ),
+    ).toBe(true);
   });
 
   it.each([
@@ -156,17 +167,62 @@ describe("truncateBody", () => {
   });
 });
 
+describe("getContentDiffEntryBadge", () => {
+  it("text/plain without captured body → no body (not binary)", () => {
+    const entry = makeEntry({
+      contentType: "text/plain",
+      contentSize: 205,
+      hasResponseBody: false,
+      responseContent: undefined,
+    });
+    expect(isBinaryMimeType(entry)).toBe(false);
+    expect(getContentDiffEntryBadge(entry)).toBe("no body");
+    expect(noCapturedBodyHint(entry)).toContain("205");
+  });
+
+  it("image/png with captured body → binary", () => {
+    const entry = makeEntry({
+      contentType: "image/png",
+      hasResponseBody: true,
+      responseContent: "data",
+    });
+    expect(getContentDiffEntryBadge(entry)).toBe("binary");
+  });
+
+  it("text/html with captured body → no badge", () => {
+    expect(
+      getContentDiffEntryBadge(
+        makeEntry({
+          contentType: "text/html",
+          hasResponseBody: true,
+          responseContent: "<html/>",
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it("contentDiffFallbackMessage when both lack captured body", () => {
+    const a = makeEntry({ hasResponseBody: false, contentSize: 100 });
+    const b = makeEntry({ hasResponseBody: false, contentSize: 200 });
+    expect(contentDiffFallbackMessage(a, b)).toContain("not captured");
+  });
+});
+
 describe("entryId", () => {
   it("two entries with different harFileIndex produce different IDs", () => {
-    const a = makeEntry({ harFileIndex: 0 });
-    const b = makeEntry({ harFileIndex: 1 });
+    const a = makeEntry({ harFileIndex: 0, indexInFile: 0 });
+    const b = makeEntry({ harFileIndex: 1, indexInFile: 0 });
     expect(entryId(a)).not.toBe(entryId(b));
   });
 
-  it("two entries with different startedDateTime produce different IDs", () => {
-    const a = makeEntry({ startedDateTime: "2024-01-01T00:00:00.000Z" });
-    const b = makeEntry({ startedDateTime: "2024-06-01T00:00:00.000Z" });
+  it("two entries with same url and time but different indexInFile produce different IDs", () => {
+    const url = "https://example.com/bf?crc=1";
+    const t = "2026-04-02T02:13:44.837Z";
+    const a = makeEntry({ url, startedDateTime: t, indexInFile: 0 });
+    const b = makeEntry({ url, startedDateTime: t, indexInFile: 1 });
     expect(entryId(a)).not.toBe(entryId(b));
+    expect(entryId(a)).toBe("0::0");
+    expect(entryId(b)).toBe("0::1");
   });
 
   it("same entry always produces the same ID", () => {

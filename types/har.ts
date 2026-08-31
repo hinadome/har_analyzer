@@ -92,6 +92,8 @@ export interface EntryRecord {
   hasResponseBody?: boolean;
   /** Stable ID for the cold body blob in IndexedDB (v2+). */
   bodyId?: string;
+  /** Stable position within the parent HAR file (0-based). */
+  indexInFile: number;
   startedDateTime: string;
 }
 

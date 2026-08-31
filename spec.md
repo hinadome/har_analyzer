@@ -83,7 +83,8 @@ After upload, the **home page** prioritizes a quick insight strip (totals, optio
 | Start Time       | `entry.startedDateTime`                                                                                                       |
 | Response Content | `entry.response.content.text` (persisted under cold IDB key when saved; see §1.5) |
 | `bodyId`         | Generated when a response body exists at parse time (v2 storage)                  |
-| `hasResponseBody`| Set when `response.content.text` was present at parse time                        |
+| `hasResponseBody`| Set when `response.content.text` was present at parse time (`undefined` field ⇒ false, even if `content.size` > 0) |
+| `indexInFile`    | Zero-based position of the entry within its parent file (`entries.length` at parse); used for stable `entryId` and `/entry/[file]/[index]` |
 | Timing phases    | `entry.timings`: `dns`, `connect`, `ssl`, `send`, `wait`, `receive`, `blocked` (optional phases use `-1` when not applicable) |
 
 ### 2.2 HAR timing model
@@ -359,9 +360,19 @@ Example: selected path `/hello` includes all of:
 | Content Type    | Normalized MIME type                                               |
 | Size            | Human-readable response body size                                  |
 | Timestamp (UTC) | `startedDateTime` formatted as UTC                                 |
-| —               | "binary" badge for binary or uncaptured entries                    |
+| —               | Optional badge: **binary** (non-text MIME) or **no body** (`response.content.text` missing; tooltip notes wire size when `content.size` > 0) |
 
-Each request to the same URL within a single HAR file appears as a separate selectable row.
+Each request within a single HAR file is a separate row. Row keys use `entryId()` → `{harFileIndex}::{indexInFile}` so duplicate URL + timestamp pairs do not collide.
+
+**Body capture vs display:**
+
+| Signal in HAR | `hasResponseBody` | Content Diff badge | Line diff? |
+| --------------- | ----------------- | ------------------ | ---------- |
+| `content.text` present (may be `""`) | `true` | — | Yes (if not binary MIME) |
+| No `content.text`, any MIME (e.g. `text/plain` redirect, `content-length: 0`) | `false` | **no body** | No — hash panel or “not captured” message |
+| Binary MIME (`image/`, `video/`, `pdf`, …) | either | **binary** | No — hash panel when body captured |
+
+`content.size` and `Content-Length` are shown in the Size column but do **not** imply `content.text` was exported.
 
 **Diff panel** (shown when two different entries are selected):
 
@@ -375,7 +386,7 @@ Each request to the same URL within a single HAR file appears as a separate sele
 | Unified diff            | Single scrollable panel; removed lines in red with `−` prefix, added lines in green with `+` prefix; line numbers in gutter                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Side-by-side diff       | Two panels (Baseline left, Compare right); placeholder rows maintain alignment; line numbers in each gutter                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Intra-line highlighting | Changed lines show character/word-level spans highlighting the exact text that was added or removed                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| Binary fallback         | When either entry is binary or has no captured body: byte sizes plus SHA-256 hash of each side's `responseContent` (Web Crypto, `crypto.subtle.digest("SHA-256", …)`) shown side-by-side as 64-char lowercase hex digests, with a status banner reporting **Identical (matching SHA-256)**, **Different (SHA-256 mismatch)**, **Computing SHA-256…**, **No body captured for {baseline \| compare \| either entry}** when `responseContent` is missing, or **Hash error: …** when `crypto.subtle` is unavailable; no line-by-line diff rendered |
+| Binary / no-body fallback | When line diff is unavailable (binary MIME or no captured `content.text`): contextual intro (both missing vs binary vs mixed), byte sizes, and SHA-256 hashes when bodies exist in storage. Banners: **Identical (matching SHA-256)**, **Different (SHA-256 mismatch)**, **Computing SHA-256…**, **No body captured for {baseline \| compare \| either entry}**, or **Hash error: …**; no line-by-line diff |
 
 ### 4.9 Header Diff page (`/header-diff?url={encoded}`)
 
@@ -626,7 +637,7 @@ Backed by the pure helpers in `utils/entryStats.ts`:
 | Performance card | Stacked timing bar reusing `components/timingPhases.ts`. Phase grid showing each phase ms + share-of-total. `Blocked` row when present. **Context strip** that places this entry's `time` and `contentSize` against the file's P50 / P95 / P99 time and median / P90 size, with tinted chips driven by `timeRank` / `sizeRank` (`faster-than-p50` green → `slower-than-p99` red). A **HintsRow** of always-rendered chips: green `Reused connection` vs. slate `New connection` (driven by `reusedConnection(timings)` — see helper definition above), `<KB/s>` throughput (when `throughputKBps` is non-null), `Cache-Control: <value>` (when the response header is present), and `X-From-Cache: <value>` (when the proxy/SW header is present). |
 | Request card     | Three subsections (Headers · Cookies · Query string). Headers table sortable a–z (column header toggle: HAR order ↔ case-insensitive a–z). Cookies and query string share the same `CookieTable` component.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | Response card    | Headers + Cookies subsections plus a `Set-Cookie (raw)` subsection that lists original response-header values verbatim when the entry sets cookies — preserves `Path` / `HttpOnly` / `Max-Age` / `SameSite` attributes the parsed list strips.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Content card     | `<pre>` rendering of `responseContent` capped at 50 000 chars. Body loaded on demand via `useEntryBody` when not in memory (§1.5). Binary content (via `isBinaryEntry`) and empty-body cases fall back to an italic placeholder. When the body exceeds the cap, a `Show full` ↔ `Show truncated` toggle is exposed. A `CopyButton` uses `navigator.clipboard.writeText` on the **full** body (silently no-ops on insecure contexts). |
+| Content card     | `<pre>` rendering of `responseContent` capped at 50 000 chars. Body loaded on demand via `useEntryBody` when not in memory (§1.5). **Binary MIME** (`isBinaryMimeType`) with captured body → “body not displayed”; **no captured text** → “not captured” copy (mentions wire size when `content.size` > 0). When the body exceeds the cap, a `Show full` ↔ `Show truncated` toggle is exposed. A `CopyButton` uses `navigator.clipboard.writeText` on the **full** body (silently no-ops on insecure contexts). |
 
 **Fallback matrix:**
 

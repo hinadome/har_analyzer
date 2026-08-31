@@ -204,18 +204,75 @@ export function buildUrlGroups(
 
 /** Stable unique identifier for an EntryRecord within a session */
 export function entryId(e: EntryRecord): string {
+  if (e.indexInFile !== undefined) {
+    return `${e.harFileIndex}::${e.indexInFile}`;
+  }
+  // Legacy entries without indexInFile (may collide if url+time repeat)
   return `${e.harFileIndex}::${e.startedDateTime}::${e.url}`;
 }
 
-/** Returns true when the entry has no diffable text body */
-export function isBinaryEntry(entry: EntryRecord): boolean {
+/** True when normalized content-type is a non-text binary MIME family. */
+export function isBinaryMimeType(entry: EntryRecord): boolean {
   const ct = entry.contentType ?? "";
-  if (BINARY_MIME_PREFIXES.some((p) => ct.startsWith(p))) return true;
-  // v2+: explicit capture flag (body may still be cold in IDB)
-  if (entry.hasResponseBody === true) return false;
-  if (entry.hasResponseBody === false) return true;
-  // Legacy / tests: fall back to whether text is present in memory
-  return entry.responseContent === undefined;
+  return BINARY_MIME_PREFIXES.some((p) => ct.startsWith(p));
+}
+
+/** True when `response.content.text` was present in the HAR at parse time. */
+export function hasCapturedResponseBody(entry: EntryRecord): boolean {
+  if (entry.hasResponseBody === true) return true;
+  if (entry.hasResponseBody === false) return false;
+  return entry.responseContent !== undefined;
+}
+
+/** Body missing from HAR (`content.size` may still be > 0). */
+export function hasNoCapturedBody(entry: EntryRecord): boolean {
+  return !hasCapturedResponseBody(entry);
+}
+
+export type ContentDiffEntryBadge = "binary" | "no body";
+
+/** Label for the content-diff entry table; null when line diff is possible. */
+export function getContentDiffEntryBadge(
+  entry: EntryRecord,
+): ContentDiffEntryBadge | null {
+  if (isBinaryMimeType(entry)) return "binary";
+  if (hasNoCapturedBody(entry)) return "no body";
+  return null;
+}
+
+/** Tooltip when badge is `no body` and wire size is known but text was not exported. */
+export function noCapturedBodyHint(entry: EntryRecord): string {
+  if (entry.contentSize > 0) {
+    return `Response body text not in this HAR (${entry.contentSize} bytes reported on the wire). Re-export with content to diff.`;
+  }
+  return "Response body not captured in this HAR (no content.text).";
+}
+
+/**
+ * True when a line-by-line text diff cannot run (binary MIME or no captured body).
+ * Alias kept for existing call sites.
+ */
+export function isBinaryEntry(entry: EntryRecord): boolean {
+  return isBinaryMimeType(entry) || hasNoCapturedBody(entry);
+}
+
+/** Intro line for the hash / no-body fallback panel on content diff. */
+export function contentDiffFallbackMessage(
+  baseline: EntryRecord,
+  compare: EntryRecord,
+): string {
+  const baseNoBody = hasNoCapturedBody(baseline);
+  const cmpNoBody = hasNoCapturedBody(compare);
+  const baseBin = isBinaryMimeType(baseline);
+  const cmpBin = isBinaryMimeType(compare);
+
+  if (baseNoBody && cmpNoBody) {
+    return "Response body text was not captured in the HAR for either entry. Line-by-line diff is not available.";
+  }
+  if (baseBin || cmpBin) {
+    return "Line-by-line diffing is not applied to binary content types. Comparing by SHA-256 hash when a body was captured.";
+  }
+  return "Line-by-line diffing is not available for these entries. Comparing by SHA-256 hash when a body was captured.";
 }
 
 // ---------------------------------------------------------------------------

@@ -5,7 +5,11 @@ import Link from "next/link";
 import StatusBadge from "@/components/StatusBadge";
 import { formatBytes } from "@/utils/harParser";
 import {
-  isBinaryEntry,
+  getContentDiffEntryBadge,
+  noCapturedBodyHint,
+  contentDiffFallbackMessage,
+  hasCapturedResponseBody,
+  isBinaryMimeType,
   sha256Hex,
   TRUNCATION_LIMIT,
 } from "@/utils/contentDiff";
@@ -26,7 +30,7 @@ export function EntryRow({
   onSelectBaseline,
   onSelectCompare,
 }: EntryRowProps) {
-  const binary = isBinaryEntry(entry);
+  const badge = getContentDiffEntryBadge(entry);
   const utc = entry.startedDateTime
     ? new Date(entry.startedDateTime).toLocaleString("en-US", {
         timeZone: "UTC",
@@ -92,11 +96,19 @@ export function EntryRow({
       <td className="py-3 px-4 text-sm font-mono text-slate-600 dark:text-slate-400 text-xs whitespace-nowrap">
         {utc}
       </td>
-      {/* Binary badge */}
+      {/* Body capture / binary badge */}
       <td className="py-3 px-4 text-sm">
-        {binary && (
+        {badge === "binary" && (
           <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
             binary
+          </span>
+        )}
+        {badge === "no body" && (
+          <span
+            className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300"
+            title={noCapturedBodyHint(entry)}
+          >
+            no body
           </span>
         )}
       </td>
@@ -129,9 +141,8 @@ export function BinaryHashCompare({
     baselineBody !== undefined ? baselineBody : baseline.responseContent;
   const cmpText =
     compareBody !== undefined ? compareBody : compare.responseContent;
-  const baseHasBody =
-    baseText !== undefined || baseline.hasResponseBody === true;
-  const cmpHasBody = cmpText !== undefined || compare.hasResponseBody === true;
+  const baseHasBody = hasCapturedResponseBody(baseline);
+  const cmpHasBody = hasCapturedResponseBody(compare);
   const baseReady = baseText !== undefined;
   const cmpReady = cmpText !== undefined;
 
@@ -190,8 +201,7 @@ export function BinaryHashCompare({
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-6 space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <p className="text-sm text-slate-600 dark:text-slate-400">
-          Line-by-line diffing is not applied to binary content. Comparing by
-          SHA-256 hash of the captured response body instead.
+          {contentDiffFallbackMessage(baseline, compare)}
         </p>
         {error ? (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800/50">

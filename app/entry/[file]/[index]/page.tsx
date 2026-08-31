@@ -17,7 +17,11 @@ import {
   type SizeRank,
   type TimeRank,
 } from "@/utils/entryStats";
-import { isBinaryEntry, TRUNCATION_LIMIT } from "@/utils/contentDiff";
+import {
+  isBinaryMimeType,
+  hasCapturedResponseBody,
+  TRUNCATION_LIMIT,
+} from "@/utils/contentDiff";
 import { normalizeTiming } from "@/utils/perfStats";
 import { TIMING_PHASES } from "@/components/timingPhases";
 import { PageShell } from "@/components/shell/PageShell";
@@ -574,7 +578,7 @@ function ResponseCard({ entry }: { entry: EntryRecord }) {
 }
 
 function ContentCard({ entry }: { entry: EntryRecord }) {
-  const binary = isBinaryEntry(entry);
+  const binaryMime = isBinaryMimeType(entry);
   const { body: loaded, loading } = useEntryBody(entry);
   const body = loaded ?? "";
   const fullLength = body.length;
@@ -597,11 +601,13 @@ function ContentCard({ entry }: { entry: EntryRecord }) {
           <p className="text-slate-600 dark:text-slate-500 text-xs italic">
             Loading response body…
           </p>
-        ) : binary || !body ? (
+        ) : binaryMime || !body ? (
           <p className="text-slate-600 dark:text-slate-500 text-xs italic">
-            {entry.hasResponseBody === true
+            {binaryMime && hasCapturedResponseBody(entry)
               ? "Binary content (image, font, audio, video, …) — body not displayed."
-              : "No response body captured for this entry."}
+              : entry.contentSize > 0
+                ? `Response body text not captured in this HAR (${formatBytes(entry.contentSize)} reported on the wire). Re-export with content to view or diff.`
+                : "No response body captured for this entry."}
           </p>
         ) : (
           <>

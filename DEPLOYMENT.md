@@ -204,7 +204,7 @@ After Docker or VM deploy, confirm the **0.2.0** UI and assets load correctly:
 | Upload | Progress line shows file name while parsing; data persists across refresh (IndexedDB v2) |
 | Insight strip | Request/error/size totals; **Tools** row; comparison table behind **Full metrics table** |
 | CORS `/cors` | Page title **CORS** (not "CORS Audit"); when cross-origin traffic exists but audit is clean, **CORS requests** table lists entries (not an empty dead-end) |
-| Content diff `/content-diff` | Search a pathname (e.g. `/hello`); banner shows **Selected path**; entry list includes every host with that pathname (query ignored). Same picker on `/header-diff` |
+| Content diff `/content-diff` | Search a pathname; **Selected path** banner; multi-host entries. Rows: **binary** vs **no body** badges (not both for `text/plain` without `content.text`). No React duplicate-key warnings when the same URL repeats in one file |
 | Header diff `/header-diff` | After selecting baseline and compare: four section cards in a **2×2 grid** (Request Headers | Response Headers, Request Cookies | Response Cookies); each card has title + `empty` / `identical` / `N changes` badge; empty sections show **None** inside the card |
 | Static assets | No 404s for `/_next/static/chunks/*` in browser devtools (if chunks 404, the standalone static copy step was skipped or the dest path was wrong — must be `.next/standalone/.next/static/`) |
 | Worker (optional) | With worker enabled, upload a large HAR — parse completes; if worker chunk 404s, app falls back to main-thread parse (check console) |

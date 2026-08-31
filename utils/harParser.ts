@@ -120,6 +120,7 @@ export function analyzeHar(
       timings,
       harFileName: fileName,
       harFileIndex: fileIndex,
+      indexInFile: entries.length,
       requestHeaders,
       responseHeaders,
       requestCookies,
@@ -161,7 +162,18 @@ export function analyzeHar(
 }
 
 export function buildHarStore(analyses: HarAnalysis[]): HarStore {
-  return { version: 2, analyses };
+  return { version: 2, analyses: normalizeAnalyses(analyses) };
+}
+
+/** Ensure every entry has a stable index within its file (legacy IDB backfill). */
+export function normalizeAnalyses(analyses: HarAnalysis[]): HarAnalysis[] {
+  return analyses.map((a) => ({
+    ...a,
+    entries: a.entries.map((e, indexInFile) => ({
+      ...e,
+      indexInFile: e.indexInFile ?? indexInFile,
+    })),
+  }));
 }
 
 export function getAllStatusCodes(analyses: HarAnalysis[]): number[] {

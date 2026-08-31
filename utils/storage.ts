@@ -1,6 +1,7 @@
 import { get, set, del, delMany, setMany, keys } from "idb-keyval";
 import type { EntryRecord, HarAnalysis, HarStore } from "@/types/har";
 import { newBodyId } from "@/utils/bodyId";
+import { normalizeAnalyses } from "@/utils/harParser";
 
 export { newBodyId } from "@/utils/bodyId";
 
@@ -35,14 +36,18 @@ export function prepareStoreForPersist(store: HarStore): {
   const bodies: Array<[string, string]> = [];
   const analyses = store.analyses.map((a) => ({
     ...a,
-    entries: a.entries.map((e) => {
+    entries: a.entries.map((e, indexInFile) => {
+      const withIndex = {
+        ...e,
+        indexInFile: e.indexInFile ?? indexInFile,
+      };
       if (e.responseContent !== undefined && e.bodyId) {
         bodies.push([bodyStorageKey(e.bodyId), e.responseContent]);
       }
       if (e.responseContent === undefined) {
-        return e;
+        return withIndex;
       }
-      const { responseContent: _omit, ...rest } = e;
+      const { responseContent: _omit, ...rest } = withIndex;
       return rest;
     }),
   }));
@@ -60,16 +65,20 @@ export function migrateLegacyStore(raw: HarStore): {
   const bodies: Array<[string, string]> = [];
   const analyses = raw.analyses.map((a) => ({
     ...a,
-    entries: a.entries.map((e) => {
+    entries: a.entries.map((e, indexInFile) => {
+      const withIndex = {
+        ...e,
+        indexInFile: e.indexInFile ?? indexInFile,
+      };
       if (e.responseContent === undefined) {
         return {
-          ...e,
-          hasResponseBody: e.hasResponseBody ?? false,
+          ...withIndex,
+          hasResponseBody: withIndex.hasResponseBody ?? false,
         };
       }
-      const bodyId = e.bodyId ?? newBodyId();
+      const bodyId = withIndex.bodyId ?? newBodyId();
       bodies.push([bodyStorageKey(bodyId), e.responseContent]);
-      const { responseContent: _omit, ...rest } = e;
+      const { responseContent: _omit, ...rest } = withIndex;
       return {
         ...rest,
         bodyId,
@@ -103,7 +112,7 @@ export async function loadHarStoreAsync(): Promise<HarStore | null> {
 
     const version = data.version ?? 1;
     if (version >= HAR_STORE_VERSION) {
-      return data;
+      return normalizeStore(data);
     }
 
     // Legacy inline bodies → split into cold keys, rewrite hot blob.
@@ -112,7 +121,7 @@ export async function loadHarStoreAsync(): Promise<HarStore | null> {
       await setMany(bodies);
     }
     await set(STORAGE_KEY, hot);
-    return hot;
+    return normalizeStore(hot);
   } catch (err) {
     console.error("Failed to load HAR data from IndexedDB:", err);
     return null;
@@ -164,4 +173,8 @@ export function withResponseContent(
 ): EntryRecord {
   if (text === undefined) return entry;
   return { ...entry, responseContent: text };
+}
+
+function normalizeStore(store: HarStore): HarStore {
+  return { ...store, analyses: normalizeAnalyses(store.analyses) };
 }
