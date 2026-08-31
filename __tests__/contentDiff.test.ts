@@ -15,6 +15,14 @@ import {
   computeDiff,
   sha256Hex,
   TRUNCATION_LIMIT,
+  urlMatchesSearch,
+  filterUrlsBySearch,
+  stripQuery,
+  pathKey,
+  filterEntriesBySelection,
+  selectionExistsInUrls,
+  normalizeSelectionKey,
+  buildUrlGroups,
 } from "@/utils/contentDiff";
 import type { EntryRecord } from "@/types/har";
 
@@ -446,5 +454,109 @@ describe("sha256Hex", () => {
     const b = await sha256Hex(bigPlus);
     expect(a).not.toBe(b);
     expect(a).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe("urlMatchesSearch / filterUrlsBySearch", () => {
+  const url = "https://api.example.com/v1/users?page=1&token=abc";
+
+  it("matches full URL substring (query param)", () => {
+    expect(urlMatchesSearch(url, "token=abc")).toBe(true);
+  });
+
+  it("matches base path substring", () => {
+    expect(urlMatchesSearch(url, "https://api.example.com/v1/users")).toBe(
+      true,
+    );
+    expect(urlMatchesSearch(url, "/v1/users")).toBe(true);
+  });
+
+  it("is case-insensitive", () => {
+    expect(urlMatchesSearch(url, "/V1/USERS")).toBe(true);
+  });
+
+  it("returns false for empty query", () => {
+    expect(urlMatchesSearch(url, "   ")).toBe(false);
+  });
+
+  it("filterUrlsBySearch dedupes and preserves order", () => {
+    const urls = [
+      url,
+      "https://api.example.com/v1/users?page=2",
+      "https://other.example.com/v1/foo",
+    ];
+    expect(filterUrlsBySearch(urls, "/v1/users")).toEqual([
+      url,
+      "https://api.example.com/v1/users?page=2",
+    ]);
+    expect(stripQuery(url)).toBe("https://api.example.com/v1/users");
+  });
+});
+
+describe("pathKey / filterEntriesBySelection / buildUrlGroups", () => {
+  const a = makeEntry({
+    url: "https://diag-iron.dnslab.webtechnologists.net/hello?x=1",
+    startedDateTime: "2024-01-01T00:00:00.000Z",
+  });
+  const b = makeEntry({
+    url: "https://echo-server-eta-blue.vercel.app/hello",
+    startedDateTime: "2024-01-01T00:00:01.000Z",
+  });
+  const c = makeEntry({
+    url: "https://api.example.com/v1/users",
+    startedDateTime: "2024-01-01T00:00:02.000Z",
+  });
+  const d = makeEntry({
+    url: "https://api.example.com/hello",
+    startedDateTime: "2024-01-01T00:00:03.000Z",
+  });
+
+  it("pathKey is pathname only", () => {
+    expect(pathKey(a.url)).toBe("/hello");
+    expect(pathKey("/hello")).toBe("/hello");
+    expect(pathKey(c.url)).toBe("/v1/users");
+    expect(pathKey(a.url)).not.toBe(stripQuery(a.url));
+  });
+
+  it("path mode returns all entries sharing pathname across hosts", () => {
+    const out = filterEntriesBySelection([a, b, c, d], "/hello", false);
+    expect(out).toEqual([a, b, d]);
+  });
+
+  it("path mode accepts a full URL and still matches by pathname", () => {
+    const out = filterEntriesBySelection([a, b, c], a.url, false);
+    expect(out).toEqual([a, b]);
+  });
+
+  it("exact mode returns only the full URL", () => {
+    expect(filterEntriesBySelection([a, b, c], a.url, true)).toEqual([a]);
+  });
+
+  it("selectionExistsInUrls / normalizeSelectionKey for deep links", () => {
+    const urls = [a.url, b.url, c.url];
+    expect(selectionExistsInUrls(urls, "/hello", false)).toBe(true);
+    expect(selectionExistsInUrls(urls, a.url, false)).toBe(true);
+    expect(selectionExistsInUrls(urls, "https://missing.example/x", false)).toBe(
+      false,
+    );
+    expect(normalizeSelectionKey(a.url, false)).toBe("/hello");
+    expect(normalizeSelectionKey("/hello", false)).toBe("/hello");
+    expect(normalizeSelectionKey(a.url, true)).toBe(a.url);
+  });
+
+  it("buildUrlGroups path-first groups by pathname across hosts", () => {
+    const groups = buildUrlGroups([a.url, b.url, c.url], false);
+    expect(groups).toHaveLength(2);
+    const hello = groups.find((g) => g.basePath === "/hello");
+    expect(hello?.fullUrls).toEqual([a.url, b.url]);
+    expect(groups.find((g) => g.basePath === "/v1/users")?.fullUrls).toEqual([
+      c.url,
+    ]);
+  });
+
+  it("buildUrlGroups exact mode is one group per URL", () => {
+    const groups = buildUrlGroups([a.url, b.url], true);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].fullUrls).toEqual([a.url]);
   });
 });

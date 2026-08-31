@@ -321,18 +321,31 @@ Displays all recorded entries for a specific URL grouped by HAR file, enabling c
 
 ### 4.8 Content Diff page (`/content-diff?url={encoded}`)
 
-Enables response body comparison between any two entries for the same URL (or same base path when query strings are ignored).
+Enables response body comparison between any two entries that share the same **pathname** (e.g. `/hello`), **across hosts**. Exact full-URL matching is an optional escape hatch. Content Diff and Header Diff share `UrlPathPicker` and `useUrlPathSelection`.
 
-**URL search:**
+**URL / path search:**
 
-- Free-text input with live filtering against all unique URLs in the loaded HAR data (case-insensitive substring match).
-- Dropdown groups results by base path (scheme + host + pathname). When "Ignore query string" is on, each group header shows the base path and lists all distinct full URLs beneath it as sub-items. Selecting the group header loads all entries sharing that base path; selecting a specific full URL loads only exact-match entries.
-- Pre-populated from the `?url=` query parameter when navigating from the compare page.
+- Label: **Search by path**. Placeholder: `e.g. /hello`.
+- Free-text input with live filtering against all unique URLs in the loaded HAR data (case-insensitive substring on the full URL **or** its pathname). Typing `/hello` surfaces every URL whose pathname contains `/hello`.
+- **Path-first (default)** — dropdown groups by **pathname** only (`pathKey()` = `URL.pathname`, e.g. `/hello`). Selecting a group (or a deep-linked `?url=`) normalizes to that pathname. Banner: **Selected path** plus hint “all hosts with this pathname”. Indented sub-items list full URLs (including query); picking a sub-item still selects the pathname.
+- **Match full URL** checkbox — each full URL is its own candidate; entry matching is exact (including query). Banner: **Selected URL**. Turning the checkbox off re-normalizes the current selection to its pathname.
+- Pre-populated from the `?url=` query parameter when navigating from the compare page; in path mode the param is normalized with `pathKey()` (pathname only) on load.
+- Enter selects the first matching group in the dropdown.
 
-**Ignore query string toggle:**
+**Query string handling:**
 
-- When enabled, entry matching uses the base path only (strips `?` and `#`), so requests to the same endpoint with different query params are grouped together.
-- The selected URL banner displays a "query strings ignored" label when the toggle is on.
+| Mode | Selection key | Entries included | Display |
+| ---- | ------------- | ---------------- | ------- |
+| Path (default) | Pathname only (`/hello`). Query and fragment are dropped. | Every entry with that pathname on **any** host, **any** query | Full URL including query on each row |
+| Match full URL | Entire URL string | Only `entry.url === selected` | Full URL including query |
+
+Search can still *filter the dropdown* by a query substring (the needle matches the full URL string), but once a path is selected, matching ignores query.
+
+Example: selected path `/hello` includes all of:
+
+- `https://diag-iron.dnslab.webtechnologists.net/hello`
+- `https://echo-server-eta-blue.vercel.app/hello`
+- `https://echo-server-eta-blue.vercel.app/hello?foo=1`
 
 **Entry table columns:**
 
@@ -366,9 +379,9 @@ Each request to the same URL within a single HAR file appears as a separate sele
 
 ### 4.9 Header Diff page (`/header-diff?url={encoded}`)
 
-Enables comparison of request/response headers and cookies between any two entries for the same URL (or same base path when query strings are ignored). Follows the same URL search and entry selection pattern as the Content Diff page (§4.8).
+Enables comparison of request/response headers and cookies between any two entries that share the same **pathname** (across hosts), with optional exact full-URL matching. Follows the same URL / path search, query-string rules, and entry selection as the Content Diff page (§4.8).
 
-**URL search and entry selection:** identical to §4.8 — free-text input, grouped dropdown with base path headers and full URL sub-items, "Ignore query string" toggle, pre-population from `?url=` query parameter.
+**URL search and entry selection:** identical to §4.8 — shared `UrlPathPicker` / `useUrlPathSelection`, pathname-grouped dropdown, query ignored in path mode, **Match full URL** escape hatch, pre-population from `?url=` (normalized to pathname in path mode).
 
 **Entry table columns:**
 
@@ -662,13 +675,16 @@ Browser FileReader API  (or Web Worker when enabled — §1.3b)
        │
        ├── Details page filters  — filterEntriesBySearch + type/value filters
        │
-       ├── Content Diff page     — useEntryBody → truncateBody()
+       ├── Content Diff page     — pathKey() / filterEntriesBySelection()
+       │                            (pathname across hosts; query ignored)
+       │                            → useEntryBody → truncateBody()
        │                            → prettifyIfJson() → computeDiff()
        │                            → UnifiedDiffView / SideBySideDiffView
        │                            (binary / no-body fallback:
        │                             sha256Hex() per side → BinaryHashCompare)
        │
-       ├── Header Diff page      — two EntryRecord header/cookie arrays
+       ├── Header Diff page      — same pathname selection as Content Diff
+       │                            → two EntryRecord header/cookie arrays
        │                            → diffKvPairs() × 4 → HeaderDiffView
        │
        ├── CORS page               — analyzeStore(analyses) → CorsReport

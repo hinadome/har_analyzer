@@ -165,7 +165,7 @@ Phase 1 must not promote `/compare` into a top-level nav item. Content/header di
 **Done when**
 
 - [ ] Presentational JSX is out of the large routes. Orchestrators may still be a few hundred lines of hooks/URL state — that is acceptable. Do **not** treat “&lt;300–400 LOC” as a hard gate.
-- [ ] Content-diff and header-diff share one URL/entry picker.
+- [x] Content-diff and header-diff share one URL/entry picker.
 - [ ] No intentional behavior change; `npm test` green.
 - [ ] Each extract PR includes or updates a small RTL smoke (landmark: title or primary control) when practical.
 
@@ -397,6 +397,7 @@ The first draft was directionally right but not executable:
 | 2026-08-30 | Phase 4b | kv-search paginated (50/page); feature-flagged parse worker (`har_parse_worker` / `NEXT_PUBLIC_HAR_PARSE_WORKER`, ≥5 MB); upload progress UI; sync fallback kept |
 | 2026-08-30 | Phase 4c | Privacy banner (dismissible); opt-in redaction via `utils/privacy` + home toggle before save |
 | 2026-08-30 | Phase 5 | `ComparisonTableCell` + `filterEntriesBySearch` used by preservation/bug tests; RTL smokes for home/kv/cors/perf-diff/content-diff/shell; CI deferred |
+| 2026-08-30 | Path-first + shared picker | Content/header diff default to path (`origin+pathname`); `UrlPathPicker` + `useUrlPathSelection` shared; Match full URL escape hatch |
 
 ---
 

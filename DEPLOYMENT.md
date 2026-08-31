@@ -19,7 +19,8 @@ Manual smoke after deploy (see [Post-deploy verification](#post-deploy-verificat
 1. Open `/` — privacy banner (first visit), upload zone, optional redaction toggle
 2. Upload a sample HAR — insight strip, Tools row, primary CTA
 3. If the capture has cross-origin traffic — `/cors` shows KPIs + **CORS requests** inventory even when findings are zero
-4. Optional: enable worker parse and upload a ≥ 5 MB HAR (see [Build-time options](#build-time-options))
+4. Open `/content-diff` — search a pathname (e.g. `/hello`); confirm **Selected path** and multi-host entries (query ignored). Same flow on `/header-diff`
+5. Optional: enable worker parse and upload a ≥ 5 MB HAR (see [Build-time options](#build-time-options))
 
 ---
 
@@ -109,7 +110,7 @@ The script:
 2. Installs PM2 globally
 3. Clones `https://github.com/hinadome/har_analyzer.git` to `~/har_analyzer`
 4. Runs `npm ci`, then **`npm test`**, then `npm run build`, then prunes devDependencies
-5. Copies `public/` and `.next/static/` into `.next/standalone/` (required by Next.js standalone output — these directories are not bundled into `server.js` automatically; **worker assets live under `.next/static/` and are included**)
+5. Copies `public/` → `.next/standalone/public/` and `.next/static/` → `.next/standalone/.next/static/` (required by Next.js standalone output — same layout as the Dockerfile; **worker assets live under `.next/static/` and are included**)
 6. Starts the app under PM2 with entry point `.next/standalone/server.js` and `NODE_ENV=production`, `PORT=3000`, `HOSTNAME=0.0.0.0` exported into the process environment
 7. Configures PM2 to restart on system reboot via `systemd`
 
@@ -202,7 +203,8 @@ After Docker or VM deploy, confirm the **0.2.0** UI and assets load correctly:
 | Upload | Progress line shows file name while parsing; data persists across refresh (IndexedDB v2) |
 | Insight strip | Request/error/size totals; **Tools** row; comparison table behind **Full metrics table** |
 | CORS `/cors` | Page title **CORS** (not "CORS Audit"); when cross-origin traffic exists but audit is clean, **CORS requests** table lists entries (not an empty dead-end) |
-| Static assets | No 404s for `/_next/static/chunks/*` in browser devtools (if chunks 404, the standalone static copy step was skipped) |
+| Content diff `/content-diff` | Search a pathname (e.g. `/hello`); banner shows **Selected path**; entry list includes every host with that pathname (query ignored). Same picker on `/header-diff` |
+| Static assets | No 404s for `/_next/static/chunks/*` in browser devtools (if chunks 404, the standalone static copy step was skipped or the dest path was wrong — must be `.next/standalone/.next/static/`) |
 | Worker (optional) | With worker enabled, upload a large HAR — parse completes; if worker chunk 404s, app falls back to main-thread parse (check console) |
 
 Sample files in `sample-hars/` are suitable for a quick smoke test; they are small, so the worker path will not activate unless you use a multi-MB capture.

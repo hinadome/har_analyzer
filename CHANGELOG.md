@@ -14,6 +14,7 @@ Major UI refresh and internal refactor. Analysis engines are unchanged; pages ar
 - **`/kv-search` pagination** — results capped at 50 rows per page with prev/next controls and deep-link page jump for `?expand=`.
 - **Privacy controls** — dismissible first-visit banner (`components/home/PrivacyBanner.tsx`); opt-in **Redact credentials before saving** toggle (`utils/privacy.ts`, `components/home/RedactSecretsToggle.tsx`) masks `Authorization`, `Cookie` / `Set-Cookie`, and common token query params before IndexedDB save (off by default).
 - **CORS request inventory** (`CorsRequestsTable` in `components/cors/CorsPanels.tsx`) — paginated table of every cross-origin and preflight entry (type, origin, ACAO, credentialed flag, findings count) with expandable handshake panels. When the audit is clean, this table is shown **above** the empty findings panel so `/cors` is useful even with zero issues.
+- **Shared URL/path picker** — `components/shared/UrlPathPicker.tsx` + `hooks/useUrlPathSelection.ts` used by `/content-diff` and `/header-diff`.
 - **Extracted route panels** — large JSX moved out of god pages into `components/compare/`, `components/content-diff/`, `components/cors/`, `components/kv-search/`, `components/performance/`, and `components/performance-diff/`.
 - **`npm test`** script — runs `vitest run`.
 - **Test hardening** — preservation/bug tests import real `ComparisonTableCell` and `filterEntriesBySearch`; RTL smokes for home, shell, kv-search, cors, perf-diff, and content-diff landmarks. 239 tests at time of release.
@@ -24,10 +25,13 @@ Major UI refresh and internal refactor. Analysis engines are unchanged; pages ar
 - **`/cors` page title** — renamed from "CORS Audit" to **CORS**; subtitle describes audit + inventory. Clean-state findings panel points users to the request inventory below (or above when promoted).
 - **`FileUpload`** — accepts optional `progressMessage` while parsing.
 - **`app/details/page.tsx`** — search filter extracted to `utils/entrySearch.ts` (`filterEntriesBySearch`).
-- **`DEPLOYMENT.md`** — 0.2.0 deploy guide: client-only architecture, pre-deploy `npm test`, worker chunks under `.next/static/`, `NEXT_PUBLIC_HAR_PARSE_WORKER` build arg, post-deploy smoke checklist (home insight, CORS inventory, privacy controls).
-- **`deploy-vm.sh`** — runs `npm test` before build; documents worker static copy; post-deploy smoke hints; honours `NEXT_PUBLIC_HAR_PARSE_WORKER` at build time when exported.
+- **`DEPLOYMENT.md`** — 0.2.0 deploy guide: client-only architecture, pre-deploy `npm test`, worker chunks under `.next/static/`, `NEXT_PUBLIC_HAR_PARSE_WORKER` build arg, post-deploy smoke checklist (home insight, CORS inventory, privacy controls, content/header-diff pathname selection).
+- **`deploy-vm.sh`** — runs `npm test` before build; copies static assets to `.next/standalone/.next/static/` (matches Dockerfile); post-deploy smoke hints including content-diff; honours `NEXT_PUBLIC_HAR_PARSE_WORKER` at build time when exported.
 - **`Dockerfile` / `docker-compose.yml`** — optional `NEXT_PUBLIC_HAR_PARSE_WORKER` build arg.
-- **`spec.md`** — synced for 0.2.0: home insight strip / Tools row, IndexedDB v2, privacy + worker flags, CORS inventory page, kv-search pagination, `PageShell`, updated data-flow and NFR sections.
+- **`spec.md`** — synced for 0.2.0: home insight strip / Tools row, IndexedDB v2, privacy + worker flags, CORS inventory page, kv-search pagination, `PageShell`, pathname-first content/header diff, updated data-flow and NFR sections.
+- **Content Diff / Header Diff pathname selection** — default match is **pathname only** (not origin + path), so `/hello` on different hosts is one set. Query strings and fragments are ignored for grouping and entry matching; rows still **display** the full URL including query. Shared `UrlPathPicker` + `useUrlPathSelection`; banner **Selected path**; `?url=` deep links normalize via `pathKey()`. **Match full URL** remains the escape hatch (exact URL including query).
+
+  Example: search `/hello` → selected path `/hello` → entries include both `https://diag-iron.dnslab.webtechnologists.net/hello` and `https://echo-server-eta-blue.vercel.app/hello` (and any `?query` variants of those paths).
 
 ### Internal (no intentional behavior change)
 

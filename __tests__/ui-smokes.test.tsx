@@ -11,6 +11,7 @@ import { PageTitle as KvPageTitle, ResultsTable } from "@/components/kv-search/K
 import { PageTitle as CorsPageTitle, CorsRequestsTable } from "@/components/cors/CorsPanels";
 import { PageTitle as DiffPageTitle } from "@/components/performance-diff/DiffPanels";
 import { TruncationNotice } from "@/components/content-diff/ContentDiffPanels";
+import { UrlPathPicker } from "@/components/shared/UrlPathPicker";
 import type { HarAnalysis } from "@/types/har";
 import type { CorsReport } from "@/utils/corsAnalysis";
 import type { HomeInsights } from "@/utils/homeInsights";
@@ -182,5 +183,26 @@ describe("content-diff landmark", () => {
     expect(
       screen.getByRole("button", { name: /Show full content/i }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("shared UrlPathPicker", () => {
+  it("shows search label and Match full URL control", () => {
+    render(
+      <UrlPathPicker
+        urlInput=""
+        onUrlInputChange={() => {}}
+        matchExactUrl={false}
+        onMatchExactUrlChange={() => {}}
+        showDropdown={false}
+        onShowDropdownChange={() => {}}
+        urlGroups={[]}
+        onSelect={() => {}}
+        onClear={() => {}}
+        selectedUrl={null}
+      />,
+    );
+    expect(screen.getByText(/Search URL or path/i)).toBeInTheDocument();
+    expect(screen.getByText(/Match full URL/i)).toBeInTheDocument();
   });
 });

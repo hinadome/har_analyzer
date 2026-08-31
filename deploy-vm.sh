@@ -48,10 +48,13 @@ if [[ "${1:-}" == "--update" ]]; then
 
   # Next.js standalone output does not bundle public/ or .next/static/
   # automatically; copy them into the standalone tree so server.js can serve them.
-  # Worker chunks (harParse.worker) live under .next/static/ and are included here.
+  # Dest path must be …/.next/static (same as Dockerfile), not …/.next/.
+  # Worker chunks (harParse.worker) live under .next/static and are included here.
   info "Copying static assets into standalone bundle..."
-  cp -r public .next/standalone/
-  cp -r .next/static .next/standalone/.next/
+  mkdir -p .next/standalone/.next
+  rm -rf .next/standalone/public .next/standalone/.next/static
+  cp -r public .next/standalone/public
+  cp -r .next/static .next/standalone/.next/static
 
   info "Restarting service..."
   export NODE_ENV=production PORT="$PORT" HOSTNAME=0.0.0.0
@@ -62,6 +65,7 @@ if [[ "${1:-}" == "--update" ]]; then
   info "Update complete. App running at http://localhost:${PORT}"
   echo ""
   echo "  Smoke test: upload a HAR at /, open /cors if cross-origin traffic exists."
+  echo "  Content diff: /content-diff — search /hello, confirm Selected path + multi-host entries."
   echo "  Optional worker: export NEXT_PUBLIC_HAR_PARSE_WORKER=1 before rebuild."
   exit 0
 fi
@@ -123,10 +127,13 @@ npm prune --omit=dev
 # Next.js' standalone output ships a minimal server.js + traced node_modules
 # but intentionally does not copy public/ or .next/static/ — they are expected
 # to be served by a CDN, or copied in manually (per the Next.js docs).
-# Worker assets (optional large-HAR parse) are under .next/static/ and included.
+# Dest path must be …/.next/static (same as Dockerfile), not …/.next/.
+# Worker assets (optional large-HAR parse) are under .next/static and included.
 info "Copying static assets into standalone bundle..."
-cp -r public .next/standalone/
-cp -r .next/static .next/standalone/.next/
+mkdir -p .next/standalone/.next
+rm -rf .next/standalone/public .next/standalone/.next/static
+cp -r public .next/standalone/public
+cp -r .next/static .next/standalone/.next/static
 
 # 7. Start with PM2.
 # server.js reads PORT and HOSTNAME from the environment, not argv, so we
@@ -165,5 +172,6 @@ echo "  Update: bash $APP_DIR/deploy-vm.sh --update"
 echo ""
 echo "  Smoke test: open /, upload a HAR, check insight strip + Tools row."
 echo "  CORS:       /cors should list cross-origin requests even when audit is clean."
+echo "  Content:    /content-diff — search /hello → Selected path; entries across hosts."
 echo "  Worker:     export NEXT_PUBLIC_HAR_PARSE_WORKER=1 && bash $APP_DIR/deploy-vm.sh --update"
 echo "  See DEPLOYMENT.md for full post-deploy verification checklist."

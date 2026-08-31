@@ -42,11 +42,12 @@ export interface DiffResult {
 
 /**
  * A URL candidate group for the search dropdown.
- * When ignoreQuery is on, basePath is the key and fullUrls lists all
- * distinct full URLs sharing that base path.
+ * In path mode (default), basePath is the pathname (e.g. `/hello`) and
+ * fullUrls lists all distinct full URLs sharing that pathname across hosts.
+ * In exact-URL mode, basePath equals the full URL and fullUrls has one item.
  */
 export interface UrlGroup {
-  /** The base path (origin + pathname, no query/hash) */
+  /** Pathname (`/hello`) in path mode, or the full URL in exact mode */
   basePath: string;
   /** All distinct full URLs that share this base path */
   fullUrls: string[];
@@ -90,24 +91,101 @@ export function stripQuery(url: string): string {
 }
 
 /**
+ * Canonical path key for content/header-diff selection: pathname only
+ * (e.g. `/hello`), so the same path on different hosts can be compared.
+ */
+export function pathKey(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.pathname || "/";
+  } catch {
+    const raw = url.split("?")[0].split("#")[0].trim();
+    if (!raw) return "/";
+    if (raw.startsWith("/")) return raw;
+    try {
+      return new URL(`https://${raw}`).pathname || "/";
+    } catch {
+      return `/${raw}`;
+    }
+  }
+}
+
+/**
+ * Case-insensitive substring match on the full URL or its pathname.
+ * Path-style needles like `/hello` match across hosts.
+ */
+export function urlMatchesSearch(url: string, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return false;
+  if (url.toLowerCase().includes(q)) return true;
+  return pathKey(url).toLowerCase().includes(q);
+}
+
+/** Filter unique URL strings by a search needle (full URL or pathname). */
+export function filterUrlsBySearch(urls: string[], query: string): string[] {
+  const q = query.trim();
+  if (!q) return [];
+  return urls.filter((u) => urlMatchesSearch(u, q));
+}
+
+/**
+ * Entries for the current selection.
+ * Path mode (default): all entries sharing the same pathname (any host).
+ * Exact mode: only entries whose full URL equals `selected`.
+ */
+export function filterEntriesBySelection(
+  entries: EntryRecord[],
+  selected: string,
+  matchExactUrl: boolean,
+): EntryRecord[] {
+  if (!selected) return [];
+  if (matchExactUrl) return entries.filter((e) => e.url === selected);
+  const key = pathKey(selected);
+  return entries.filter((e) => pathKey(e.url) === key);
+}
+
+/** Whether `needle` (from `?url=` or selection) exists in the unique URL list. */
+export function selectionExistsInUrls(
+  urls: string[],
+  needle: string,
+  matchExactUrl: boolean,
+): boolean {
+  if (!needle) return false;
+  if (matchExactUrl) return urls.includes(needle);
+  const key = pathKey(needle);
+  return urls.some((u) => pathKey(u) === key);
+}
+
+/**
+ * Normalize a deep-link or pick into the stored selection key.
+ * Path mode → pathname only; exact mode → unchanged.
+ */
+export function normalizeSelectionKey(
+  url: string,
+  matchExactUrl: boolean,
+): string {
+  return matchExactUrl ? url : pathKey(url);
+}
+
+/**
  * Build grouped URL candidates from a flat list of unique URLs.
  *
- * When ignoreQuery is true, groups URLs by their base path so the dropdown
- * can show a tree of base path → full URLs.
+ * When matchExactUrl is false (path-first default), groups by pathname so the
+ * dropdown shows `/hello` → full URL variants across hosts.
  *
- * When ignoreQuery is false, each full URL is its own group with one entry.
+ * When matchExactUrl is true, each full URL is its own group.
  */
 export function buildUrlGroups(
   urls: string[],
-  ignoreQuery: boolean,
+  matchExactUrl: boolean,
 ): UrlGroup[] {
-  if (!ignoreQuery) {
+  if (matchExactUrl) {
     return urls.map((u) => ({ basePath: u, fullUrls: [u] }));
   }
 
   const map = new Map<string, Set<string>>();
   for (const url of urls) {
-    const base = stripQuery(url);
+    const base = pathKey(url);
     if (!map.has(base)) map.set(base, new Set());
     map.get(base)!.add(url);
   }

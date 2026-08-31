@@ -8,11 +8,12 @@ import HeaderDiffView from '@/components/HeaderDiffView';
 import { PageShell } from '@/components/shell/PageShell';
 import { EmptyState } from '@/components/shell/EmptyState';
 import { LoadingState } from '@/components/shell/LoadingState';
+import { UrlPathPicker } from '@/components/shared/UrlPathPicker';
 import { useHarStore } from '@/hooks/useHarStore';
-import { entryId, stripQuery, buildUrlGroups } from '@/utils/contentDiff';
+import { useUrlPathSelection } from '@/hooks/useUrlPathSelection';
+import { entryId, filterEntriesBySelection } from '@/utils/contentDiff';
 import { computeHeaderDiff } from '@/utils/headerDiff';
 import type { EntryRecord } from '@/types/har';
-import type { UrlGroup } from '@/utils/contentDiff';
 
 // ---------------------------------------------------------------------------
 // Entry row
@@ -87,12 +88,8 @@ function HeaderDiffPageContent() {
 
   const { analyses, isLoading } = useHarStore();
 
-  const [urlInput, setUrlInput]       = useState(urlParam);
-  const [selectedUrl, setSelectedUrl] = useState<string | null>(urlParam || null);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [ignoreQuery, setIgnoreQuery]  = useState(false);
-  const [baselineId, setBaselineId]   = useState<string | null>(null);
-  const [compareId, setCompareId]     = useState<string | null>(null);
+  const [baselineId, setBaselineId] = useState<string | null>(null);
+  const [compareId, setCompareId] = useState<string | null>(null);
 
   const allUrls = useMemo<string[]>(() => {
     const seen = new Set<string>();
@@ -100,22 +97,35 @@ function HeaderDiffPageContent() {
     return Array.from(seen).sort();
   }, [analyses]);
 
-  const urlGroups = useMemo<UrlGroup[]>(() => {
-    if (!urlInput) return [];
-    const q = urlInput.toLowerCase();
-    const matching = allUrls.filter((u) => u.toLowerCase().includes(q));
-    return buildUrlGroups(matching, ignoreQuery);
-  }, [allUrls, urlInput, ignoreQuery]);
+  const {
+    urlInput,
+    selectedUrl,
+    matchExactUrl,
+    showDropdown,
+    urlGroups,
+    urlParamNotFound,
+    handleUrlInputChange,
+    handleUrlSelect,
+    handleClear,
+    handleMatchExactUrlChange,
+    setShowDropdown,
+  } = useUrlPathSelection({
+    allUrls,
+    urlParam,
+    onSelectionReset: () => {
+      setBaselineId(null);
+      setCompareId(null);
+    },
+  });
 
   const urlEntries = useMemo<EntryRecord[]>(() => {
     if (!selectedUrl) return [];
-    const all = analyses.flatMap((a) => a.entries);
-    if (ignoreQuery) {
-      const base = stripQuery(selectedUrl);
-      return all.filter((e) => stripQuery(e.url) === base);
-    }
-    return all.filter((e) => e.url === selectedUrl);
-  }, [analyses, selectedUrl, ignoreQuery]);
+    return filterEntriesBySelection(
+      analyses.flatMap((a) => a.entries),
+      selectedUrl,
+      matchExactUrl,
+    );
+  }, [analyses, selectedUrl, matchExactUrl]);
 
   const baselineEntry = useMemo<EntryRecord | null>(
     () => (baselineId ? urlEntries.find((e) => entryId(e) === baselineId) ?? null : null),
@@ -131,31 +141,8 @@ function HeaderDiffPageContent() {
     return computeHeaderDiff(baselineEntry, compareEntry);
   }, [baselineEntry, compareEntry, baselineId, compareId]);
 
-  const handleUrlInputChange = (v: string) => {
-    setUrlInput(v);
-    setShowDropdown(true);
-    if (!v) { setSelectedUrl(null); setBaselineId(null); setCompareId(null); }
-  };
-
-  const handleUrlSelect = (url: string) => {
-    setUrlInput(url);
-    setSelectedUrl(url);
-    setShowDropdown(false);
-    setBaselineId(null);
-    setCompareId(null);
-  };
-
-  const handleClear = () => {
-    setUrlInput(''); setSelectedUrl(null); setShowDropdown(false);
-    setBaselineId(null); setCompareId(null);
-  };
-
   const sameEntrySelected = baselineId !== null && baselineId === compareId;
   const bothSelected = baselineEntry !== null && compareEntry !== null && !sameEntrySelected;
-
-  const urlParamNotFound =
-    urlParam && !isLoading && analyses.length > 0 &&
-    !allUrls.some((u) => (ignoreQuery ? stripQuery(u) === stripQuery(urlParam) : u === urlParam));
 
   if (isLoading) {
     return <LoadingState fullScreen message="Loading…" />;
@@ -171,76 +158,20 @@ function HeaderDiffPageContent() {
           <EmptyState title="No HAR data loaded." />
         ) : (
           <>
-            {/* URL Search */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Search URL</label>
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input type="checkbox" checked={ignoreQuery} onChange={(e) => { setIgnoreQuery(e.target.checked); setBaselineId(null); setCompareId(null); }} className="accent-blue-600" />
-                  <span className="text-xs text-slate-600 dark:text-slate-400">Ignore query string</span>
-                </label>
-              </div>
-              <div className="relative">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={urlInput}
-                    onChange={(e) => handleUrlInputChange(e.target.value)}
-                    onFocus={() => urlInput && setShowDropdown(true)}
-                    placeholder="Type or paste a URL..."
-                    className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-colors"
-                  />
-                  {urlInput && (
-                    <button onClick={handleClear} className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-sm">
-                      Clear
-                    </button>
-                  )}
-                </div>
-                {showDropdown && urlInput && (
-                  <div className="absolute z-20 w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg max-h-72 overflow-y-auto">
-                    {urlGroups.length > 0 ? urlGroups.map((group) => (
-                      <div key={group.basePath}>
-                        <button
-                          onClick={() => handleUrlSelect(group.basePath)}
-                          className="w-full text-left px-4 py-2 text-xs font-mono font-semibold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors border-b border-slate-100 dark:border-slate-800 truncate block"
-                          title={group.basePath}
-                        >
-                          {group.basePath}
-                        </button>
-                        {ignoreQuery && group.fullUrls.length > 1 && group.fullUrls.map((fullUrl) => (
-                          <button
-                            key={fullUrl}
-                            onClick={() => handleUrlSelect(fullUrl)}
-                            className="w-full text-left pl-8 pr-4 py-1.5 text-xs font-mono text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0 truncate block"
-                            title={fullUrl}
-                          >
-                            {fullUrl}
-                          </button>
-                        ))}
-                      </div>
-                    )) : (
-                      <div className="px-4 py-3 text-sm text-slate-500 italic">No matching URLs</div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {urlParamNotFound && (
-              <div className="rounded-xl border border-orange-200 dark:border-orange-800/50 bg-orange-50 dark:bg-orange-950/20 px-5 py-4 text-sm text-orange-700 dark:text-orange-400">
-                URL not found in loaded HAR data: <span className="font-mono break-all">{urlParam}</span>
-              </div>
-            )}
-
-            {selectedUrl && (
-              <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-5 py-3">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">Selected URL</p>
-                  {ignoreQuery && <span className="text-xs text-amber-600 dark:text-amber-400 italic">query strings ignored</span>}
-                </div>
-                <p className="font-mono text-sm text-slate-900 dark:text-slate-100 break-all">{selectedUrl}</p>
-              </div>
-            )}
+            <UrlPathPicker
+              urlInput={urlInput}
+              onUrlInputChange={handleUrlInputChange}
+              matchExactUrl={matchExactUrl}
+              onMatchExactUrlChange={handleMatchExactUrlChange}
+              showDropdown={showDropdown}
+              onShowDropdownChange={setShowDropdown}
+              urlGroups={urlGroups}
+              onSelect={handleUrlSelect}
+              onClear={handleClear}
+              selectedUrl={selectedUrl}
+              urlParamNotFound={!isLoading && analyses.length > 0 && urlParamNotFound}
+              urlParam={urlParam}
+            />
 
             {/* Entry list */}
             {selectedUrl && urlEntries.length > 0 && (
