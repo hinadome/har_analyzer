@@ -128,6 +128,10 @@ export function InsightStrip({ insights }: InsightStripProps) {
           <CacheValidatorInsightCard cache={insights.cacheValidator} />
         )}
 
+      {insights.anomalies && insights.anomalies.uniquePathCount > 0 && (
+        <AnomaliesInsightCard anomalies={insights.anomalies} />
+      )}
+
       {single && (
         <p className="text-sm text-slate-600 dark:text-slate-500">
           <Link
@@ -200,6 +204,48 @@ function CacheValidatorInsightCard({
           Same pathname with different ETag or Last-Modified (
           {cache.entryCount.toLocaleString()} entr
           {cache.entryCount === 1 ? "y" : "ies"} involved)
+        </p>
+      </div>
+      <span className="text-sm font-medium shrink-0 text-amber-700 dark:text-amber-400">
+        Review →
+      </span>
+    </Link>
+  );
+}
+
+function AnomaliesInsightCard({
+  anomalies,
+}: {
+  anomalies: NonNullable<HomeInsights["anomalies"]>;
+}) {
+  const parts: string[] = [];
+  if (anomalies.statusCount > 0) {
+    parts.push(`${anomalies.statusCount} status`);
+  }
+  if (anomalies.sizeCount > 0) {
+    parts.push(`${anomalies.sizeCount} size`);
+  }
+  if (anomalies.encodingCount > 0) {
+    parts.push(`${anomalies.encodingCount} encoding`);
+  }
+  if (anomalies.cachePolicyCount > 0) {
+    parts.push(`${anomalies.cachePolicyCount} cache policy`);
+  }
+  const breakdown =
+    parts.length > 0 ? parts.join(" · ") : "mixed pathname signals";
+
+  return (
+    <Link
+      href="/anomalies"
+      className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/15 px-4 py-3 transition-colors hover:bg-amber-100/70 dark:hover:bg-amber-950/25"
+    >
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+          {anomalies.uniquePathCount.toLocaleString()} path
+          {anomalies.uniquePathCount === 1 ? "" : "s"} with anomalies
+        </p>
+        <p className="text-xs text-slate-600 dark:text-slate-500 mt-0.5">
+          {breakdown} — status, size, encoding, or cache headers on the same path
         </p>
       </div>
       <span className="text-sm font-medium shrink-0 text-amber-700 dark:text-amber-400">

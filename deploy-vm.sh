@@ -69,6 +69,8 @@ if [[ "${1:-}" == "--update" ]]; then
   echo "  Legacy:       /content-diff → ?section=content; /header-diff → ?section=headers"
   echo "  MIME:         /mime-mismatch — extension vs effective Content-Type; unverified toggle."
   echo "  Cache:        /cache-validator — ETag / Last-Modified drift; W vs S chips; expand entries."
+  echo "  Anomalies:    /anomalies — status, size (2x/10KB), encoding, cache-policy; hub + categories."
+  echo "  Fixture:      upload sample-hars/fixture-audits.har for deterministic audit smoke."
   echo "  Content-Type: entry detail split when HAR mime is x-unknown but header is real."
   echo "  Optional worker: export NEXT_PUBLIC_HAR_PARSE_WORKER=1 before rebuild."
   exit 0
@@ -180,6 +182,8 @@ echo "  Entry diff: /entry-diff — Headers | Content tabs; lazy body load on Co
 echo "  Legacy:     /content-diff → ?section=content; /header-diff → ?section=headers"
 echo "  MIME:       /mime-mismatch — extension vs effective Content-Type; unverified toggle."
 echo "  Cache:      /cache-validator — ETag / Last-Modified drift; W vs S chips; expand entries."
+echo "  Anomalies:  /anomalies — status, size (2x/10KB), encoding, cache-policy; hub + categories."
+echo "  Fixture:    upload sample-hars/fixture-audits.har for deterministic audit smoke."
 echo "  Content-Type: entry detail split when HAR mime is x-unknown but header is real."
 echo "  Worker:     export NEXT_PUBLIC_HAR_PARSE_WORKER=1 && bash $APP_DIR/deploy-vm.sh --update"
 echo "  See DEPLOYMENT.md for full post-deploy verification checklist."

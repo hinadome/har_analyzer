@@ -10,7 +10,7 @@ Run locally or in CI before shipping:
 
 ```bash
 npm ci
-npm test          # Vitest suite (300+ tests)
+npm test          # Vitest suite (316+ tests)
 npm run build     # must succeed with output: 'standalone'
 ```
 
@@ -25,7 +25,8 @@ Manual smoke after deploy (see [Post-deploy verification](#post-deploy-verificat
 7. Open `/mime-mismatch` — mismatch rows; Tools badge count; optional **Show unverified extensions**
 8. Open `/cache-validator` — path groups with ETag or Last-Modified drift; **W** / **S** ETag chips; expand entries; Tools badge count; optional **Show paths with no cache validators**
 9. Entry detail — when HAR `content.mimeType` is `x-unknown` but `Content-Type` header is real, summary shows split (effective type + amber HAR vs header note); Content Types counts use effective type
-10. Optional: enable worker parse and upload a ≥ 5 MB HAR (see [Build-time options](#build-time-options))
+10. Open `/anomalies` — hub with four category cards; Tools **Anomalies** badge; drill into `/anomalies/status`, `/size`, `/encoding`, or `/cache-policy`; expand path groups
+11. Optional: enable worker parse and upload a ≥ 5 MB HAR (see [Build-time options](#build-time-options))
 
 ---
 
@@ -196,6 +197,18 @@ Set custom values in `docker-compose.yml` (Docker) or via PM2 ecosystem file (VM
 
 No server env vars are required for IndexedDB v2, privacy banner, or credential redaction — those are entirely client-side.
 
+### Anomaly detection thresholds (client-side)
+
+Pathname grouping ignores query strings (same as entry diff). Constants are defined in `utils/anomalies/analyze.ts` and are not configurable at deploy time.
+
+| Check | Flag when |
+| ----- | --------- |
+| Status | ≥2 entries on pathname, distinct status codes |
+| Size drift | ≥2 entries with `content.size` > 0, and **max/min ≥ 2** or **max − min ≥ 10 KB** |
+| Encoding drift | ≥2 entries on pathname, distinct `Content-Encoding` (missing = identity) |
+| Large uncompressed | ≥1 entry: compressible type, no `Content-Encoding`, `content.size` ≥ **50 KB** |
+| Cache policy | ≥2 entries on pathname, >1 distinct `Cache-Control` or >1 distinct `Vary` (among entries that send each header) |
+
 ---
 
 ## Post-deploy verification
@@ -206,17 +219,18 @@ After Docker or VM deploy, confirm the **0.2.0** UI and assets load correctly:
 | ----- | -------------- |
 | Home `/` | Upload zone; dismissible **HARs can contain credentials** banner on first visit; **Redact credentials before saving** checkbox (off by default) |
 | Upload | Progress line shows file name while parsing; data persists across refresh (IndexedDB v2) |
-| Insight strip | Request/error/size totals; **Tools** row (CORS, MIME mismatch, Cache validator badges); comparison table behind **Full metrics table** |
+| Insight strip | Request/error/size totals; **Tools** row (CORS, MIME mismatch, Cache validator, Anomalies badges); comparison table behind **Full metrics table** |
 | CORS `/cors` | Page title **CORS** (not "CORS Audit"); when cross-origin traffic exists but audit is clean, **CORS requests** table lists entries (not an empty dead-end) |
 | Entry diff `/entry-diff` | Search a pathname; **Selected path** banner; unified entry table. **Headers | Content** tabs with status chips. Headers: 2×2 section cards. Content: body diff or **no body** / **binary** badges. Bodies load only on Content tab. No duplicate-key console errors |
 | Legacy redirects | `/content-diff` → `?section=content`; `/header-diff` → `?section=headers` |
 | MIME mismatch `/mime-mismatch` | Mismatch table (effective Content-Type); insight strip card when mismatches exist; **Show unverified extensions** off by default; Tools badge count |
 | Cache validator `/cache-validator` | Pathname groups with ETag or Last-Modified drift; weak (**W**, dashed) vs strong (**S**) ETag chips; expandable entry list; insight strip + Tools badge; **no-validator** paths toggle |
+| Anomalies `/anomalies` | Hub + four categories (status, size, encoding, cache-policy); unique-path Tools badge; correlation strip for multi-check paths; expandable entry lists; see [thresholds table](#anomaly-detection-thresholds-client-side) |
 | Content-Type resolution | Entry detail split when HAR MIME is junk (`x-unknown`) but header is real; **from header** / **≠ HAR** chips in list tables; Content Types counts use effective type |
 | Static assets | No 404s for `/_next/static/chunks/*` in browser devtools (if chunks 404, the standalone static copy step was skipped or the dest path was wrong — must be `.next/standalone/.next/static/`) |
 | Worker (optional) | With worker enabled, upload a large HAR — parse completes; if worker chunk 404s, app falls back to main-thread parse (check console) |
 
-Sample files in `sample-hars/` are suitable for a quick smoke test; they are small, so the worker path will not activate unless you use a multi-MB capture.
+Sample files in `sample-hars/` are suitable for smoke tests. Use **`fixture-audits.har`** for deterministic audit triggers (MIME, cache validator, anomalies, Content-Type split) — see `sample-hars/README.md`. General samples (`sample-a` … `sample-c`) are clean traffic for pair diff; they do not trigger audit findings. Worker path will not activate on these small files unless you use a multi-MB capture.
 
 ---
 

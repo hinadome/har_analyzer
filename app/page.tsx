@@ -20,6 +20,7 @@ import { useHarStore, updateHarStoreCache } from "@/hooks/useHarStore";
 import { analyzeStore as analyzeCorsStore } from "@/utils/corsAnalysis";
 import { analyzeStore as analyzeMimeMismatchStore } from "@/utils/mimeMismatch";
 import { analyzeStore as analyzeCacheValidatorStore } from "@/utils/cacheValidator";
+import { analyzeStore as analyzeAnomaliesStore } from "@/utils/anomalies";
 import { computeHomeInsights } from "@/utils/homeInsights";
 import {
   isRedactSecretsEnabled,
@@ -55,12 +56,23 @@ export default function HomePage() {
     [analyses],
   );
 
+  const anomaliesReport = useMemo(
+    () => (analyses.length > 0 ? analyzeAnomaliesStore(analyses) : null),
+    [analyses],
+  );
+
   const insights = useMemo(
     () =>
       analyses.length > 0
-        ? computeHomeInsights(analyses, corsReport, mimeReport, cacheReport)
+        ? computeHomeInsights(
+            analyses,
+            corsReport,
+            mimeReport,
+            cacheReport,
+            anomaliesReport,
+          )
         : null,
-    [analyses, corsReport, mimeReport, cacheReport],
+    [analyses, corsReport, mimeReport, cacheReport, anomaliesReport],
   );
 
   const handleFilesSelected = async (files: File[]) => {
@@ -308,6 +320,18 @@ export default function HomePage() {
                     {insights.cacheValidator.pathConflictCount}
                   </span>
                 ) : insights.cacheValidator ? (
+                  <span className="text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400 font-semibold">
+                    clear
+                  </span>
+                ) : null}
+              </Link>
+              <Link href="/anomalies" className={toolLinkClass}>
+                Anomalies
+                {insights.anomalies && insights.anomalies.uniquePathCount > 0 ? (
+                  <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold leading-none">
+                    {insights.anomalies.uniquePathCount}
+                  </span>
+                ) : insights.anomalies ? (
                   <span className="text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400 font-semibold">
                     clear
                   </span>

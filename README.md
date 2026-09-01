@@ -18,6 +18,7 @@ A browser-based tool for uploading, analyzing, and comparing multiple HAR (HTTP 
 - **Entry diff** (`/entry-diff`) — one pathname picker and entry table; compare any two entries on **Headers | Content** tabs (status chips on each tab). Headers: 2×2 card grid for request/response headers and cookies. Content: line-by-line body diff with **no body** / **binary** badges and lazy body load on the Content tab only. Legacy `/content-diff` and `/header-diff` redirect here with `?section=`.
 - **MIME mismatch** (`/mime-mismatch`) — lists entries whose URL pathname extension does not match effective response Content-Type (e.g. `.json` with `text/html`). Tools link shows mismatch count or **clear**; insight strip card when mismatches exist. Unknown extensions hidden by default; **Show unverified extensions** toggle for paths with no built-in MIME map.
 - **Cache validator** (`/cache-validator`) — same pathname (query ignored) with different **ETag** or **Last-Modified** across entries. Tools link shows path-count badge or **clear**; insight strip when drift exists. Weak ETags (`W/`) are distinct from strong — **W** (dashed violet) vs **S** (solid) chips. Expand path groups to see every entry; **Entry diff →** deep link. Optional **Show paths with no cache validators** toggle.
+- **Anomalies hub** (`/anomalies`) — one Tools entry for pathname-level inconsistencies: **status**, **size drift**, **encoding**, and **cache policy** (`Cache-Control` / `Vary`). Hub cards link to `/anomalies/status`, `/anomalies/size`, `/anomalies/encoding`, and `/anomalies/cache-policy`. Badge = unique paths with any anomaly (or **clear**). Insight strip when anomalies exist; hub highlights paths flagged by multiple checks. Related links to MIME mismatch, cache validator, and CORS.
 - **Content-Type resolution** — Chrome/NetLog HARs often set `response.content.mimeType` to `x-unknown` while the `Content-Type` header is correct (e.g. `text/javascript; charset=utf-8`). The app stores both, uses the header for **effective** type in Content Types counts and filters, and shows an amber split on entry detail when they disagree (`HAR content.mimeType` vs response header). List tables show a **from header** or **≠ HAR** chip when sources differ.
 - **Header & Cookie Search page** (`/kv-search`) — free-text search over every header and cookie carried by the loaded HARs. Three needles (Name / Value / URL contains) with `contains` / `exact` / `regex` modes, case-sensitive toggle, four scope chips (req header / res header / req cookie / res cookie), and a file scope. Same-pair AND semantics; paginated results table (50 rows per page) with click-to-expand highlighted match spans; the URL cell deep-links to `/compare`, and the expanded full URL deep-links to `/entry/[file]/[index]`
 - **CORS page** (`/cors`) — audit **and inventory** for every cross-origin request in the loaded HARs. Detects nine finding kinds (failed/slow preflights, missing or mismatched `Access-Control-Allow-Origin`, wildcard ACAO with credentials, disallowed method, disallowed request header, missing `Access-Control-Allow-Credentials` flag, blocked actual request). KPI cards summarize totals, failed/slow preflights, and cross-origin counts; the issues table is filterable by file, severity, and Origin; when no issues are found, a **CORS requests** table still lists every cross-origin and preflight entry (origin, ACAO, credentialed flag, per-row findings) with expandable handshake panels. A collapsible "Preflight pairs" section chains every OPTIONS request to its matching actual request within a 5 s window
@@ -48,8 +49,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## Usage
 
 1. **Upload HAR files** — drag one or more `.har` files onto the upload zone, or click to open the file picker. Files can be added incrementally. Parse progress shows the current file name while processing. Optionally enable **Redact credentials before saving** to mask sensitive headers and query params before data is written to IndexedDB.
-2. **Review the insight strip** — see total requests, errors (4xx/5xx/0), total size, and file count at a glance. With two files loaded, headline pair deltas link straight to `/performance/diff`. A CORS chip appears when cross-origin traffic exists (red for errors, amber for warnings, neutral when clear). Cards appear when MIME mismatches or cache validator drift exist.
-3. **Open a tool** — use the Tools row (Performance overview, Pair diff, CORS, kv-search, Entry diff, MIME mismatch, Cache validator) or the primary CTA (single file → file performance; two files → pair diff).
+2. **Review the insight strip** — see total requests, errors (4xx/5xx/0), total size, and file count at a glance. With two files loaded, headline pair deltas link straight to `/performance/diff`. A CORS chip appears when cross-origin traffic exists (red for errors, amber for warnings, neutral when clear). Cards appear when MIME mismatches, cache validator drift, or pathname anomalies exist.
+3. **Open a tool** — use the Tools row (Performance overview, Pair diff, CORS, kv-search, Entry diff, MIME mismatch, Cache validator, Anomalies) or the primary CTA (single file → file performance; two files → pair diff).
 4. **Drill into details** — expand "Full metrics table" on the home page, or click any status code, the "Unique URLs" row, any HTTP method, any content type label, or any content size range to open a details page filtered to that dimension.
 5. **Inspect per-file performance** — click a file name chip or the file detail link to see P50/P95/P99 latency, slowest requests, largest resources, and an average timing breakdown across all requests.
 6. **See the cross-file performance overview** — open `/performance` from Tools to lay every loaded file out side by side: KPI matrix, timing-phase comparison, shared-axis distribution histogram, per-content-type table, and combined Slowest/Largest top lists.
@@ -61,10 +62,11 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
    Enable **Match full URL** only when you need an exact URL **including** query.
 10. **Review MIME mismatches** — open **MIME mismatch** from Tools (or `/mime-mismatch`). Lists entries whose URL extension does not match effective Content-Type (header used when HAR `content.mimeType` is `x-unknown`). Unknown extensions are hidden by default; enable **Show unverified extensions** for paths like `.aspx` with no built-in MIME map.
 11. **Review cache validator drift** — open **Cache validator** from Tools (or `/cache-validator`). Lists pathnames where ETag or Last-Modified differs across entries sharing the same path (query ignored). Weak ETags show a dashed **W** chip; strong tags show **S**. Expand a row to see every entry; use **Entry diff →** to compare bodies or headers on that path. Enable **Show paths with no cache validators** for multi-entry paths with no ETag or Last-Modified on any response.
-12. **Review CORS** — when cross-origin requests exist, open **CORS** from the insight strip or Tools. Filter by file scope, severity, or request Origin. When findings exist, the issues table is shown first; when the audit is clean, the **CORS requests** inventory is promoted so you can browse origins, ACAO, and handshake headers without an empty dead-end.
-13. **Search headers and cookies** — open **Search headers/cookies** from Tools (or the per-file link in `/file/[index]`) to open `/kv-search`. Enter a name, value, or URL fragment; pick a mode and scope; paginate through results and expand rows for highlighted matches.
-14. **Inspect a single request in depth** — click any URL in the per-file entry list, the "Detail →" link in `/compare`'s expand panel, the expanded URL in a `/kv-search` result, or any of the `/cors` deep links to open `/entry/[file]/[index]`. On entry detail, if HAR `content.mimeType` and the `Content-Type` header disagree (common with Chrome exports), the summary shows both values.
-15. **Remove or clear files** — click the × on a file chip to remove it, or use "Clear all" in the header to reset local IndexedDB data.
+12. **Review pathname anomalies** — open **Anomalies** from Tools (or `/anomalies`). The hub lists four checks with counts; open a category to expand path groups and entries. Use **Entry diff →** from any expanded row. See [Anomalies: rules and thresholds](#anomalies-rules-and-thresholds) below for exact flag criteria.
+13. **Review CORS** — when cross-origin requests exist, open **CORS** from the insight strip or Tools. Filter by file scope, severity, or request Origin. When findings exist, the issues table is shown first; when the audit is clean, the **CORS requests** inventory is promoted so you can browse origins, ACAO, and handshake headers without an empty dead-end.
+14. **Search headers and cookies** — open **Search headers/cookies** from Tools (or the per-file link in `/file/[index]`) to open `/kv-search`. Enter a name, value, or URL fragment; pick a mode and scope; paginate through results and expand rows for highlighted matches.
+15. **Inspect a single request in depth** — click any URL in the per-file entry list, the "Detail →" link in `/compare`'s expand panel, the expanded URL in a `/kv-search` result, or any of the `/cors` deep links to open `/entry/[file]/[index]`. On entry detail, if HAR `content.mimeType` and the `Content-Type` header disagree (common with Chrome exports), the summary shows both values.
+16. **Remove or clear files** — click the × on a file chip to remove it, or use "Clear all" in the header to reset local IndexedDB data.
 
 ### Content-Type: HAR body metadata vs response header
 
@@ -76,6 +78,19 @@ Aggregations (**Content Types** on home, file page, and details filters) use an 
 Entry detail shows a single line when both agree. When they disagree, you see the effective type plus an amber note with **HAR content.mimeType** and the raw **Response header** (including `charset` when present). Compare, entry diff, and MIME mismatch tables show a small **from header** or **≠ HAR** chip on split rows.
 
 Legacy IndexedDB data is re-enriched from stored response headers on load (no re-upload required).
+
+### Anomalies: rules and thresholds
+
+All anomaly checks group by **pathname only** (`pathKey()` — query string and fragment ignored, any host). With **All files** selected, the same path across two HAR captures is one group. Constants live in `utils/anomalies/analyze.ts`.
+
+| Check | Route | When a path is flagged |
+| ----- | ----- | ---------------------- |
+| **Status** | `/anomalies/status` | ≥2 entries on the pathname and **more than one distinct HTTP status code** among them. |
+| **Size drift** | `/anomalies/size` | ≥2 entries with `content.size` **> 0**, and either **max ÷ min ≥ 2** (`SIZE_RATIO_THRESHOLD`) **or** **max − min ≥ 10 KB** (`SIZE_MIN_DELTA_BYTES`). |
+| **Encoding** | `/anomalies/encoding` | **Drift:** ≥2 entries on the path with **different `Content-Encoding`** (missing header = `identity`). **Large plain:** ≥1 entry with **effective** compressible type (`text/*`, `application/json`, JS, XML), **no** `Content-Encoding`, and **`content.size` ≥ 50 KB** (`LARGE_UNCOMPRESSED_BYTES`). |
+| **Cache policy** | `/anomalies/cache-policy` | ≥2 entries on the path and either **>1 distinct `Cache-Control`** value (among entries that send it) or **>1 distinct `Vary`** value (among entries that send it). Separate from cache-validator (ETag / Last-Modified). |
+
+Home **Anomalies** badge and insight strip use **unique pathnames** with at least one flagged check (not the sum of category row counts). The hub **correlation strip** lists paths hit by multiple checks.
 
 ### Large HAR files
 
@@ -132,6 +147,9 @@ har_analyzer/
 │   ├── entry-diff/page.tsx     # Headers + Content tabs (canonical)
 │   ├── mime-mismatch/page.tsx  # Content-Type vs URL extension audit
 │   ├── cache-validator/page.tsx # ETag / Last-Modified drift by pathname
+│   ├── anomalies/
+│   │   ├── page.tsx             # Anomalies hub
+│   │   └── [category]/page.tsx  # status | size | encoding | cache-policy
 │   ├── content-diff/page.tsx   # → redirects to /entry-diff?section=content
 │   ├── header-diff/page.tsx    # → redirects to /entry-diff?section=headers
 │   ├── kv-search/page.tsx
@@ -144,6 +162,7 @@ har_analyzer/
 │   ├── entry-diff/             # EntryPickTable, tabs, metadata, content panel
 │   ├── mime-mismatch/          # MIME mismatch table + filters
 │   ├── cache-validator/        # Cache validator path groups + ETag display
+│   ├── anomalies/              # Hub + category path-group tables
 │   ├── content-diff/           # ContentDiffPanels (shared with entry-diff)
 │   ├── cors/                   # CorsPanels (KPI, issues, CORS requests inventory, pairs)
 │   ├── kv-search/              # KvSearchPanels (paginated results)
@@ -179,6 +198,7 @@ har_analyzer/
 │   ├── entryDiff.ts
 │   ├── mimeMismatch.ts
 │   ├── cacheValidator.ts
+│   ├── anomalies/              # Pathname anomaly analyzers + thresholds
 │   ├── headerDiff.ts
 │   ├── perfStats.ts
 │   ├── perfFormat.ts
@@ -186,7 +206,14 @@ har_analyzer/
 │   ├── kvSearch.ts
 │   └── entryStats.ts
 ├── __tests__/                  # Vitest unit + RTL smoke tests
+├── scripts/
+│   └── generate-fixture-audits.mjs
 └── sample-hars/
+    ├── README.md               # Fixture catalog + thresholds reference
+    ├── fixture-audits.har      # Intentional audit triggers (regenerate via scripts/)
+    ├── sample-a.har
+    ├── sample-b.har
+    └── sample-c.har
 ```
 
 ## Tech Stack

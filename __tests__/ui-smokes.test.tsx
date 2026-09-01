@@ -14,6 +14,7 @@ import { TruncationNotice } from "@/components/content-diff/ContentDiffPanels";
 import { ContentTypeSummary } from "@/components/shared/ContentTypeDisplay";
 import { PageTitle as MimePageTitle } from "@/components/mime-mismatch/MismatchPanels";
 import { PageTitle as CacheValidatorPageTitle } from "@/components/cache-validator/ValidatorPanels";
+import { HubTitle } from "@/components/anomalies/HubPanels";
 import { UrlPathPicker } from "@/components/shared/UrlPathPicker";
 import type { HarAnalysis } from "@/types/har";
 import type { CorsReport } from "@/utils/corsAnalysis";
@@ -225,6 +226,28 @@ describe("content-diff landmark", () => {
     expect(screen.getByText(/truncated/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Show full content/i }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("anomalies landmark", () => {
+  it("HubTitle names the tool", () => {
+    render(
+      <HubTitle
+        fileCount={2}
+        report={{
+          files: [],
+          status: { groups: [], pathGroupCount: 0, entryCount: 0 },
+          size: { groups: [], pathGroupCount: 0, entryCount: 0 },
+          encoding: { groups: [], pathGroupCount: 0, entryCount: 0 },
+          cachePolicy: { groups: [], pathGroupCount: 0, entryCount: 0 },
+          uniquePathCount: 3,
+          correlations: [],
+        }}
+      />,
+    );
+    expect(
+      screen.getByRole("heading", { name: "Anomalies" }),
     ).toBeInTheDocument();
   });
 });

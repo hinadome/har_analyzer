@@ -115,6 +115,23 @@ Optional phases report `-1` to indicate "not applicable" (e.g. `dns` and `connec
 - The result is lowercased and trimmed.
 - A missing or empty `mimeType` is recorded as `unknown`.
 
+### 2.4a Effective Content-Type (HAR vs response header)
+
+Analyzer: `utils/contentType.ts` (`resolveContentType`, `enrichEntryContentType`, `rebuildContentTypeCounts`).
+
+| Field | Source |
+| ----- | ------ |
+| `contentMimeType` | Normalized `response.content.mimeType` |
+| `headerContentType` | Raw `Content-Type` response header |
+| `contentType` (effective) | HAR MIME when meaningful; otherwise normalized header MIME |
+| `contentTypeFromHeader` | `true` when effective type came from the header fallback |
+| `contentTypeSourcesAgree` | `false` when HAR MIME is junk (`unknown`, `x-unknown`, empty) but header has a real type |
+
+- **Content Types** counts and `/details?type=contentType` filters use the **effective** type.
+- Entry detail shows a single line when sources agree; otherwise an amber split (HAR `content.mimeType` vs response header).
+- List tables may show **from header** or **≠ HAR** chips (`ContentTypeDisplay`).
+- Legacy IndexedDB entries backfill from stored `responseHeaders` on load (`normalizeAnalyses` in `harParser.ts`).
+
 ### 2.5 Per-file aggregates computed
 
 - `totalRequests` — total entry count
@@ -144,7 +161,7 @@ Displayed after at least one file is loaded (in addition to §1 upload chrome).
 
 ### 3.2 Insight strip
 
-Backed by `utils/homeInsights.ts` (`computeHomeInsights`) — uses per-file rollups and optional `CorsReport` only; never walks entry arrays or runs full perf stats.
+Backed by `utils/homeInsights.ts` (`computeHomeInsights`) — uses per-file rollups plus optional reports from `corsAnalysis`, `mimeMismatch`, `cacheValidator`, and `anomalies` (cheap counts only; no full entry walks for perf stats).
 
 | Element | Behaviour |
 | ------- | --------- |
@@ -152,6 +169,9 @@ Backed by `utils/homeInsights.ts` (`computeHomeInsights`) — uses per-file roll
 | Pair deltas | When ≥ 2 files: headline Δ for requests, errors, and bytes between files 0 and 1, linking to `/performance/diff?base=0&cmp=1` |
 | Primary CTA | One file → **Open file performance** (`/file/0`); two or more → **Compare two runs** (`/performance/diff`) |
 | CORS chip | Shown when `crossOriginCount > 0`. Copy is severity-aware: red **CORS audit — N errors**, amber **CORS — N warnings**, neutral **N cross-origin requests — all clear**. Links to `/cors` |
+| MIME mismatch card | When `mismatchCount > 0` — links to `/mime-mismatch` |
+| Cache validator card | When `pathConflictCount > 0` — links to `/cache-validator` |
+| Anomalies card | When `uniquePathCount > 0` — links to `/anomalies`; subtitle summarizes category counts |
 | Per-file footnote | Single-file mode: unique URL count (+ error count when > 0) linking to `/file/{index}` |
 
 ### 3.3 Tools row
@@ -165,7 +185,9 @@ Horizontal link group (always visible when data is loaded):
 | CORS | `/cors` when cross-origin traffic exists; badge = error count, warning count, or **clear** label |
 | Search headers/cookies | `/kv-search` |
 | Entry diff | `/entry-diff` |
-| MIME mismatch | `/mime-mismatch` — always in Tools; badge = mismatch count or **clear** |
+| MIME mismatch | `/mime-mismatch` — badge = mismatch count or **clear** |
+| Cache validator | `/cache-validator` — badge = path groups with ETag/LM drift or **clear** |
+| Anomalies | `/anomalies` — badge = unique paths with any anomaly or **clear** |
 | Content diff (legacy) | `/content-diff` → redirects to `/entry-diff?section=content` |
 | Header diff (legacy) | `/header-diff` → redirects to `/entry-diff?section=headers` |
 
@@ -391,6 +413,31 @@ Compares normalized response `Content-Type` to the URL pathname extension (query
 | Unknown extension (not in built-in map) | **unverified** — hidden unless **Show unverified extensions** (`?unverified=1`) |
 
 **UI:** file scope chips, KPI row, paginated table (50 rows) with Kind, File, Method, Status, URL, Ext, Content-Type, Expected, Size, link to `/entry/[file]/[index]`. Home Tools badge and insight strip card when `mismatchCount > 0`.
+
+### 4.9.2 Cache validator page (`/cache-validator`)
+
+Groups entries by pathname (query ignored via `pathKey()`). Analyzer: `utils/cacheValidator.ts`.
+
+**Drift rules:** ≥2 entries on the same pathname; among entries that send each header, more than one distinct normalized **ETag** and/or **Last-Modified**. Weak ETags (`W/…`) use a distinct comparison key from strong tags with the same quoted value.
+
+**UI:** file scope; path-group table with drift kind (ETag / Last-Modified / both); **W** (dashed violet) vs **S** (solid) ETag chips; expandable entry list; **Entry diff →** (`?url=/pathname`). Optional **Show paths with no cache validators** (`?no-validator=1`) for ≥2 entries with neither header. Home Tools badge (`pathConflictCount`) and insight strip when drift exists.
+
+### 4.9.3 Anomalies hub (`/anomalies` and category routes)
+
+Pathname-level inconsistency audits. Analyzer: `utils/anomalies/` (`analyzeStore`). Hub links to:
+
+| Route | Check |
+| ----- | ----- |
+| `/anomalies/status` | ≥2 entries, distinct HTTP status codes |
+| `/anomalies/size` | ≥2 entries with `content.size` > 0, max/min ≥ **2** or max − min ≥ **10 KB** |
+| `/anomalies/encoding` | Encoding drift (≥2 entries, distinct `Content-Encoding`; missing = `identity`) or large uncompressed (compressible type, no encoding, size ≥ **50 KB**) |
+| `/anomalies/cache-policy` | ≥2 entries, >1 distinct `Cache-Control` or >1 distinct `Vary` (among entries that send each header) |
+
+Constants: `SIZE_RATIO_THRESHOLD`, `SIZE_MIN_DELTA_BYTES`, `LARGE_UNCOMPRESSED_BYTES` in `utils/anomalies/analyze.ts`.
+
+**UI:** hub cards with per-category counts; **correlation strip** for paths flagged by multiple checks; category pages mirror cache-validator layout (file scope, expandable path groups, entry tables, **Entry diff →**). Home **Anomalies** badge uses **unique pathnames** with any finding (not sum of category row counts). Insight strip when `uniquePathCount > 0`. Footer links to MIME mismatch, cache validator, and CORS.
+
+**Fixture:** `sample-hars/fixture-audits.har` (see `sample-hars/README.md`) triggers all categories for smoke tests.
 
 ### 4.10 Cross-file Performance Dashboard (`/performance`)
 
@@ -660,6 +707,15 @@ Browser FileReader API  (or Web Worker when enabled — §1.3b)
        │                            → two EntryRecord header/cookie arrays
        │                            → diffKvPairs() × 4 → HeaderDiffView
        │
+       ├── MIME mismatch page        — analyzeStore(analyses) → MimeMismatchReport
+       │                            → filter by file / unverified toggle
+       │
+       ├── Cache validator page      — analyzeStore(analyses) → path groups
+       │                            → ETag / Last-Modified drift by pathname
+       │
+       ├── Anomalies hub + categories— analyzeStore(analyses) → status/size/
+       │                            encoding/cache-policy path groups
+       │
        ├── CORS page               — analyzeStore(analyses) → CorsReport
        │                            → IssuesTable + CorsRequestsTable
        │                            + HandshakePanel + PreflightPairsSection
@@ -688,7 +744,7 @@ All routes share **`PageShell`** (`AppHeader`, back link, crumb) and common empt
 | Storage limits | IndexedDB v2: metadata hot blob + per-body cold keys; quota errors surface inline on save. Legacy v1 stores migrate on load when possible.                                    |
 | Accessibility  | Semantic HTML table elements; keyboard-navigable sort headers and pagination controls                                                                                        |
 | Responsiveness | Horizontally scrollable tables on narrow viewports; shared shell with sticky header across tool pages                                                                          |
-| Testing        | `npm test` runs Vitest unit + RTL smoke tests (239+ at v0.2.0)                                                                                                               |
+| Testing        | `npm test` runs Vitest unit + RTL smoke tests (316+ at v0.2.0); `fixture-audits.har` covered in `__tests__/fixtureAudits.test.ts` |
 
 ---
 

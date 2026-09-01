@@ -47,6 +47,13 @@ export interface HomeInsights {
     pathConflictCount: number;
     entryCount: number;
   } | null;
+  anomalies: {
+    uniquePathCount: number;
+    statusCount: number;
+    sizeCount: number;
+    encodingCount: number;
+    cachePolicyCount: number;
+  } | null;
 }
 
 /** Home / tools copy for the CORS insight chip. */
@@ -118,6 +125,13 @@ export function computeHomeInsights(
   corsReport: CorsReport | null,
   mimeReport: { mismatchCount: number; unverifiedCount: number } | null = null,
   cacheReport: { pathConflictCount: number; entryCount: number } | null = null,
+  anomaliesReport: {
+    uniquePathCount: number;
+    status: { pathGroupCount: number };
+    size: { pathGroupCount: number };
+    encoding: { pathGroupCount: number };
+    cachePolicy: { pathGroupCount: number };
+  } | null = null,
 ): HomeInsights {
   const files = analyses.map(fileInsight);
   const totalRequests = files.reduce((s, f) => s + f.totalRequests, 0);
@@ -164,6 +178,17 @@ export function computeHomeInsights(
         }
       : null;
 
+  const anomalies =
+    anomaliesReport && analyses.length > 0
+      ? {
+          uniquePathCount: anomaliesReport.uniquePathCount,
+          statusCount: anomaliesReport.status.pathGroupCount,
+          sizeCount: anomaliesReport.size.pathGroupCount,
+          encodingCount: anomaliesReport.encoding.pathGroupCount,
+          cachePolicyCount: anomaliesReport.cachePolicy.pathGroupCount,
+        }
+      : null;
+
   return {
     files,
     totalRequests,
@@ -173,5 +198,6 @@ export function computeHomeInsights(
     cors,
     mimeMismatch,
     cacheValidator,
+    anomalies,
   };
 }
