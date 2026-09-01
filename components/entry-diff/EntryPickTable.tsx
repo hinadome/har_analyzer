@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import StatusBadge from "@/components/StatusBadge";
+import { ContentTypeCell } from "@/components/shared/ContentTypeDisplay";
 import { formatBytes } from "@/utils/harParser";
 import {
   entryId,
@@ -80,8 +81,8 @@ function EntryPickRow({
       <td className="py-3 px-4 text-sm">
         <StatusBadge code={entry.status} />
       </td>
-      <td className="py-3 px-4 text-sm font-mono text-purple-600 dark:text-purple-400 text-xs">
-        {entry.contentType || "—"}
+      <td className="py-3 px-4 text-sm">
+        <ContentTypeCell entry={entry} />
       </td>
       <td className="py-3 px-4 text-sm font-mono text-slate-700 dark:text-slate-300 text-right text-xs">
         {formatBytes(entry.contentSize)}

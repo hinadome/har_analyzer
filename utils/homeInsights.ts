@@ -39,6 +39,10 @@ export interface HomeInsights {
     errorCount: number;
     warningCount: number;
   } | null;
+  mimeMismatch: {
+    mismatchCount: number;
+    unverifiedCount: number;
+  } | null;
 }
 
 /** Home / tools copy for the CORS insight chip. */
@@ -108,6 +112,7 @@ export function fileInsight(a: HarAnalysis): FileInsight {
 export function computeHomeInsights(
   analyses: HarAnalysis[],
   corsReport: CorsReport | null,
+  mimeReport: { mismatchCount: number; unverifiedCount: number } | null = null,
 ): HomeInsights {
   const files = analyses.map(fileInsight);
   const totalRequests = files.reduce((s, f) => s + f.totalRequests, 0);
@@ -138,6 +143,14 @@ export function computeHomeInsights(
         }
       : null;
 
+  const mimeMismatch =
+    mimeReport && analyses.length > 0
+      ? {
+          mismatchCount: mimeReport.mismatchCount,
+          unverifiedCount: mimeReport.unverifiedCount,
+        }
+      : null;
+
   return {
     files,
     totalRequests,
@@ -145,5 +158,6 @@ export function computeHomeInsights(
     totalErrors,
     pair,
     cors,
+    mimeMismatch,
   };
 }

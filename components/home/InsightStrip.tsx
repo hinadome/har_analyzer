@@ -118,6 +118,11 @@ export function InsightStrip({ insights }: InsightStripProps) {
 
       {insights.cors && <CorsInsightCard cors={insights.cors} />}
 
+      {insights.mimeMismatch &&
+        insights.mimeMismatch.mismatchCount > 0 && (
+          <MimeMismatchInsightCard mime={insights.mimeMismatch} />
+        )}
+
       {single && (
         <p className="text-sm text-slate-600 dark:text-slate-500">
           <Link
@@ -139,6 +144,35 @@ export function InsightStrip({ insights }: InsightStripProps) {
         </p>
       )}
     </section>
+  );
+}
+
+function MimeMismatchInsightCard({
+  mime,
+}: {
+  mime: NonNullable<HomeInsights["mimeMismatch"]>;
+}) {
+  return (
+    <Link
+      href="/mime-mismatch"
+      className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/15 px-4 py-3 transition-colors hover:bg-amber-100/70 dark:hover:bg-amber-950/25"
+    >
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+          {mime.mismatchCount.toLocaleString()} Content-Type / extension mismatch
+          {mime.mismatchCount === 1 ? "" : "es"}
+        </p>
+        <p className="text-xs text-slate-600 dark:text-slate-500 mt-0.5">
+          URL extension does not match response Content-Type
+          {mime.unverifiedCount > 0
+            ? ` · ${mime.unverifiedCount.toLocaleString()} unverified extension${mime.unverifiedCount === 1 ? "" : "s"} (hidden by default)`
+            : ""}
+        </p>
+      </div>
+      <span className="text-sm font-medium shrink-0 text-amber-700 dark:text-amber-400">
+        Review →
+      </span>
+    </Link>
   );
 }
 

@@ -17,7 +17,8 @@ import {
   collectBodyIds,
 } from "@/utils/storage";
 import { useHarStore, updateHarStoreCache } from "@/hooks/useHarStore";
-import { analyzeStore } from "@/utils/corsAnalysis";
+import { analyzeStore as analyzeCorsStore } from "@/utils/corsAnalysis";
+import { analyzeStore as analyzeMimeMismatchStore } from "@/utils/mimeMismatch";
 import { computeHomeInsights } from "@/utils/homeInsights";
 import {
   isRedactSecretsEnabled,
@@ -39,14 +40,21 @@ export default function HomePage() {
   const isLoading = isStoreLoading || isProcessing;
 
   const corsReport = useMemo(
-    () => (analyses.length > 0 ? analyzeStore(analyses) : null),
+    () => (analyses.length > 0 ? analyzeCorsStore(analyses) : null),
+    [analyses],
+  );
+
+  const mimeReport = useMemo(
+    () => (analyses.length > 0 ? analyzeMimeMismatchStore(analyses) : null),
     [analyses],
   );
 
   const insights = useMemo(
     () =>
-      analyses.length > 0 ? computeHomeInsights(analyses, corsReport) : null,
-    [analyses, corsReport],
+      analyses.length > 0
+        ? computeHomeInsights(analyses, corsReport, mimeReport)
+        : null,
+    [analyses, corsReport, mimeReport],
   );
 
   const handleFilesSelected = async (files: File[]) => {
@@ -273,6 +281,18 @@ export default function HomePage() {
               </Link>
               <Link href="/entry-diff" className={toolLinkClass}>
                 Entry diff
+              </Link>
+              <Link href="/mime-mismatch" className={toolLinkClass}>
+                MIME mismatch
+                {insights.mimeMismatch && insights.mimeMismatch.mismatchCount > 0 ? (
+                  <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold leading-none">
+                    {insights.mimeMismatch.mismatchCount}
+                  </span>
+                ) : insights.mimeMismatch ? (
+                  <span className="text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400 font-semibold">
+                    clear
+                  </span>
+                ) : null}
               </Link>
             </div>
           </section>

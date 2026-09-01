@@ -165,6 +165,7 @@ Horizontal link group (always visible when data is loaded):
 | CORS | `/cors` when cross-origin traffic exists; badge = error count, warning count, or **clear** label |
 | Search headers/cookies | `/kv-search` |
 | Entry diff | `/entry-diff` |
+| MIME mismatch | `/mime-mismatch` — always in Tools; badge = mismatch count or **clear** |
 | Content diff (legacy) | `/content-diff` → redirects to `/entry-diff?section=content` |
 | Header diff (legacy) | `/header-diff` → redirects to `/entry-diff?section=headers` |
 
@@ -375,6 +376,21 @@ Header names are compared case-insensitively; values case-sensitively. Duplicate
 ### 4.9 Header Diff / Content Diff (legacy redirects)
 
 `/header-diff` and `/content-diff` are client pages that `router.replace` once to `/entry-diff` with `?section=headers` or `?section=content`, preserving existing query params. Tab switching on `/entry-diff` is local state and does not rewrite the URL.
+
+### 4.9.1 MIME mismatch page (`/mime-mismatch`)
+
+Compares normalized response `Content-Type` to the URL pathname extension (query ignored). Analyzer: `utils/mimeMismatch.ts` (`analyzeStore`, `analyzeMimeMismatch`).
+
+**Rules:**
+
+| Case | Listed? |
+| ---- | ------- |
+| No pathname extension (e.g. `/api/users`) | Skipped |
+| `contentType` empty or `unknown` | Skipped |
+| Known extension, MIME not in expected set | **mismatch** (default table) |
+| Unknown extension (not in built-in map) | **unverified** — hidden unless **Show unverified extensions** (`?unverified=1`) |
+
+**UI:** file scope chips, KPI row, paginated table (50 rows) with Kind, File, Method, Status, URL, Ext, Content-Type, Expected, Size, link to `/entry/[file]/[index]`. Home Tools badge and insight strip card when `mismatchCount > 0`.
 
 ### 4.10 Cross-file Performance Dashboard (`/performance`)
 

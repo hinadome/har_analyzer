@@ -15,11 +15,12 @@ A browser-based tool for uploading, analyzing, and comparing multiple HAR (HTTP 
 - **Pair diff dashboard** (`/performance/diff`) — pick a baseline and a compare file to see headline KPI Δs (with % change and tinted regression/improvement cues), per-phase timing deltas, an overlaid 2-color histogram, per-content-type Δ table, biggest movers by |Δtime| and |Δsize|, top-10 regressions and improvements, and "Only in Base" / "Only in Compare" unique-URL listings that deep-link into the per-file view filtered to that URL
 - Per-URL comparison page showing each HAR file's entries side-by-side with expandable request detail including **Request headers**, **Response headers**, **Cookies**, **Timing**, and **Content** tabs
 - Per-request timing breakdown: stacked bar chart and phase grid (DNS, Connect, SSL, Send, TTFB, Receive) shown when expanding any individual request
-- **Content Diff page** — search by **pathname** (e.g. `/hello`). The banner shows **Selected path** and the entry list includes every host that requested that path (query strings ignored for matching, still shown on each row). Pick any two entries for a line-by-line body diff (intra-line highlighting, JSON prettify, unified / side-by-side, optional **Match full URL**). Entry rows show **binary** (non-text MIME: image, font, audio/video, octet-stream, zip, pdf) or **no body** (e.g. `text/plain` with `content-length` but no `content.text` in the HAR — common for redirects and beacons) instead of lumping both as “binary”. When line diff isn’t possible, the panel falls back to SHA-256 hash comparison or explains that body text wasn’t captured
-- **Header Diff page** — same pathname search and entry selection as Content Diff. When two entries are selected, four matching cards in a **2×2 grid** (Request Headers | Response Headers, Request Cookies | Response Cookies) each show a status badge (`empty` / `identical` / `N changes`) and a fixed-column diff table (Name, Baseline, Compare) with color-coded added, removed, changed, and equal rows
+- **Entry diff** (`/entry-diff`) — one pathname picker and entry table; compare any two entries on **Headers | Content** tabs (status chips on each tab). Headers: 2×2 card grid for request/response headers and cookies. Content: line-by-line body diff with **no body** / **binary** badges and lazy body load on the Content tab only. Legacy `/content-diff` and `/header-diff` redirect here with `?section=`.
+- **MIME mismatch** (`/mime-mismatch`) — lists entries whose URL pathname extension does not match effective response Content-Type (e.g. `.json` with `text/html`). Tools link shows mismatch count or **clear**; insight strip card when mismatches exist. Unknown extensions hidden by default; **Show unverified extensions** toggle for paths with no built-in MIME map.
+- **Content-Type resolution** — Chrome/NetLog HARs often set `response.content.mimeType` to `x-unknown` while the `Content-Type` header is correct (e.g. `text/javascript; charset=utf-8`). The app stores both, uses the header for **effective** type in Content Types counts and filters, and shows an amber split on entry detail when they disagree (`HAR content.mimeType` vs response header). List tables show a **from header** or **≠ HAR** chip when sources differ.
 - **Header & Cookie Search page** (`/kv-search`) — free-text search over every header and cookie carried by the loaded HARs. Three needles (Name / Value / URL contains) with `contains` / `exact` / `regex` modes, case-sensitive toggle, four scope chips (req header / res header / req cookie / res cookie), and a file scope. Same-pair AND semantics; paginated results table (50 rows per page) with click-to-expand highlighted match spans; the URL cell deep-links to `/compare`, and the expanded full URL deep-links to `/entry/[file]/[index]`
 - **CORS page** (`/cors`) — audit **and inventory** for every cross-origin request in the loaded HARs. Detects nine finding kinds (failed/slow preflights, missing or mismatched `Access-Control-Allow-Origin`, wildcard ACAO with credentials, disallowed method, disallowed request header, missing `Access-Control-Allow-Credentials` flag, blocked actual request). KPI cards summarize totals, failed/slow preflights, and cross-origin counts; the issues table is filterable by file, severity, and Origin; when no issues are found, a **CORS requests** table still lists every cross-origin and preflight entry (origin, ACAO, credentialed flag, per-row findings) with expandable handshake panels. A collapsible "Preflight pairs" section chains every OPTIONS request to its matching actual request within a 5 s window
-- **Single-entry detail page** (`/entry/[file]/[index]`) — deep dive into one specific request: title block with method / status / URL; performance card with stacked timing bar, phase grid, and a context strip ranking this entry's time and content size against the file's P50 / P95 / P99 and size distribution; Request, Response, and Content cards exposing headers (sortable a–z), parsed cookies, parsed query string, raw `Set-Cookie` values, and the response body (loaded on demand from IndexedDB; capped at 50 000 chars with "Show full" toggle + copy-to-clipboard). Content card distinguishes **binary MIME** (body not displayed) from **no captured body text** (may still show wire size when `content.size` > 0). Linked from the per-file entry list URL cell, the `/compare` per-entry expand-panel header, the `/kv-search` expanded panel, and three sites on `/cors` (issues table URL cell, handshake panel "Open entry detail →" affordance, and the preflight-pair OPTIONS / Actual URL rows)
+- **Single-entry detail page** (`/entry/[file]/[index]`) — deep dive into one specific request: title block with method / status / URL; performance card with stacked timing bar, phase grid, and a context strip ranking this entry's time and content size against the file's P50 / P95 / P99 and size distribution; Request, Response, and Content cards exposing headers (sortable a–z), parsed cookies, parsed query string, raw `Set-Cookie` values, and the response body (loaded on demand from IndexedDB; capped at 50 000 chars with "Show full" toggle + copy-to-clipboard). Content-Type summary shows effective type and, when HAR `content.mimeType` disagrees with the response header, an amber split (`x-unknown` in Chrome exports is common). Content card distinguishes **binary MIME** (body not displayed) from **no captured body text** (may still show wire size when `content.size` > 0). Linked from the per-file entry list URL cell, the `/compare` per-entry expand-panel header, the `/kv-search` expanded panel, and three sites on `/cors` (issues table URL cell, handshake panel "Open entry detail →" affordance, and the preflight-pair OPTIONS / Actual URL rows)
 - **Privacy controls** — dismissible banner on first visit explaining that HARs may contain credentials and data stays in this browser's IndexedDB; optional **Redact credentials before saving** toggle masks `Authorization`, `Cookie` / `Set-Cookie`, and common token query params before persistence (off by default so CORS and kv-search keep real values)
 - All data processed entirely in the browser — no server required
 - Persistent state via **IndexedDB v2** across page refreshes: entry metadata in a hot blob; response bodies stored under separate keys and loaded on demand for entry detail, compare Content tab, and content diff
@@ -46,8 +47,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## Usage
 
 1. **Upload HAR files** — drag one or more `.har` files onto the upload zone, or click to open the file picker. Files can be added incrementally. Parse progress shows the current file name while processing. Optionally enable **Redact credentials before saving** to mask sensitive headers and query params before data is written to IndexedDB.
-2. **Review the insight strip** — see total requests, errors (4xx/5xx/0), total size, and file count at a glance. With two files loaded, headline pair deltas link straight to `/performance/diff`. A CORS chip appears when cross-origin traffic exists: red for errors, amber for warnings only, neutral green-ish "all clear" when traffic passed audit.
-3. **Open a tool** — use the Tools row (Performance overview, Pair diff, CORS, kv-search, Entry diff) or the primary CTA (single file → file performance; two files → pair diff).
+2. **Review the insight strip** — see total requests, errors (4xx/5xx/0), total size, and file count at a glance. With two files loaded, headline pair deltas link straight to `/performance/diff`. A CORS chip appears when cross-origin traffic exists (red for errors, amber for warnings, neutral when clear). A MIME mismatch card appears when extension vs Content-Type mismatches exist.
+3. **Open a tool** — use the Tools row (Performance overview, Pair diff, CORS, kv-search, Entry diff, MIME mismatch) or the primary CTA (single file → file performance; two files → pair diff).
 4. **Drill into details** — expand "Full metrics table" on the home page, or click any status code, the "Unique URLs" row, any HTTP method, any content type label, or any content size range to open a details page filtered to that dimension.
 5. **Inspect per-file performance** — click a file name chip or the file detail link to see P50/P95/P99 latency, slowest requests, largest resources, and an average timing breakdown across all requests.
 6. **See the cross-file performance overview** — open `/performance` from Tools to lay every loaded file out side by side: KPI matrix, timing-phase comparison, shared-axis distribution histogram, per-content-type table, and combined Slowest/Largest top lists.
@@ -57,10 +58,22 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
    - **Headers** — four section cards (request/response headers and cookies) in a 2×2 grid with `−` / `+` / `~` row styling when values differ. Tab chip shows `identical` or `N changes`.
    - **Content** — line-by-line body diff (unified or side-by-side). Rows with **no body** mean `response.content.text` was missing in the HAR; **binary** means a non-text MIME type. Tab chip shows `identical`, `diff`, `binary`, or `no body`. Bodies load only on the Content tab.
    Enable **Match full URL** only when you need an exact URL **including** query.
-10. **Review CORS** — when cross-origin requests exist, open **CORS** from the insight strip or Tools. Filter by file scope, severity, or request Origin. When findings exist, the issues table is shown first; when the audit is clean, the **CORS requests** inventory is promoted so you can browse origins, ACAO, and handshake headers without an empty dead-end.
-11. **Search headers and cookies** — open **Search headers/cookies** from Tools (or the per-file link in `/file/[index]`) to open `/kv-search`. Enter a name, value, or URL fragment; pick a mode and scope; paginate through results and expand rows for highlighted matches.
-12. **Inspect a single request in depth** — click any URL in the per-file entry list, the "Detail →" link in `/compare`'s expand panel, the expanded URL in a `/kv-search` result, or any of the `/cors` deep links to open `/entry/[file]/[index]`.
-13. **Remove or clear files** — click the × on a file chip to remove it, or use "Clear all" in the header to reset local IndexedDB data.
+10. **Review MIME mismatches** — open **MIME mismatch** from Tools (or `/mime-mismatch`). Lists entries whose URL extension does not match effective Content-Type (header used when HAR `content.mimeType` is `x-unknown`). Unknown extensions are hidden by default; enable **Show unverified extensions** for paths like `.aspx` with no built-in MIME map.
+11. **Review CORS** — when cross-origin requests exist, open **CORS** from the insight strip or Tools. Filter by file scope, severity, or request Origin. When findings exist, the issues table is shown first; when the audit is clean, the **CORS requests** inventory is promoted so you can browse origins, ACAO, and handshake headers without an empty dead-end.
+12. **Search headers and cookies** — open **Search headers/cookies** from Tools (or the per-file link in `/file/[index]`) to open `/kv-search`. Enter a name, value, or URL fragment; pick a mode and scope; paginate through results and expand rows for highlighted matches.
+13. **Inspect a single request in depth** — click any URL in the per-file entry list, the "Detail →" link in `/compare`'s expand panel, the expanded URL in a `/kv-search` result, or any of the `/cors` deep links to open `/entry/[file]/[index]`. On entry detail, if HAR `content.mimeType` and the `Content-Type` header disagree (common with Chrome exports), the summary shows both values.
+14. **Remove or clear files** — click the × on a file chip to remove it, or use "Clear all" in the header to reset local IndexedDB data.
+
+### Content-Type: HAR body metadata vs response header
+
+Aggregations (**Content Types** on home, file page, and details filters) use an **effective** MIME type:
+
+1. **Primary:** normalized `response.content.mimeType` from the HAR.
+2. **Fallback:** normalized `Content-Type` response header when the HAR value is empty, `unknown`, or `x-unknown`.
+
+Entry detail shows a single line when both agree. When they disagree, you see the effective type plus an amber note with **HAR content.mimeType** and the raw **Response header** (including `charset` when present). Compare, entry diff, and MIME mismatch tables show a small **from header** or **≠ HAR** chip on split rows.
+
+Legacy IndexedDB data is re-enriched from stored response headers on load (no re-upload required).
 
 ### Large HAR files
 
@@ -115,6 +128,7 @@ har_analyzer/
 │   │   └── diff/page.tsx
 │   ├── compare/page.tsx
 │   ├── entry-diff/page.tsx     # Headers + Content tabs (canonical)
+│   ├── mime-mismatch/page.tsx  # Content-Type vs URL extension audit
 │   ├── content-diff/page.tsx   # → redirects to /entry-diff?section=content
 │   ├── header-diff/page.tsx    # → redirects to /entry-diff?section=headers
 │   ├── kv-search/page.tsx
@@ -125,12 +139,13 @@ har_analyzer/
 │   ├── home/                   # InsightStrip, PrivacyBanner, RedactSecretsToggle
 │   ├── compare/                # ComparePanels (PerFileRow, expand tabs, …)
 │   ├── entry-diff/             # EntryPickTable, tabs, metadata, content panel
+│   ├── mime-mismatch/          # MIME mismatch table + filters
 │   ├── content-diff/           # ContentDiffPanels (shared with entry-diff)
 │   ├── cors/                   # CorsPanels (KPI, issues, CORS requests inventory, pairs)
 │   ├── kv-search/              # KvSearchPanels (paginated results)
 │   ├── performance/            # Performance overview panels
 │   ├── performance-diff/       # Pair diff panels
-│   ├── shared/                 # fileColors, UrlPathPicker (content/header diff)
+│   ├── shared/                 # fileColors, UrlPathPicker, ContentTypeDisplay
 │   ├── FileUpload.tsx
 │   ├── ComparisonTable.tsx
 │   ├── StatusBadge.tsx
@@ -140,7 +155,8 @@ har_analyzer/
 │   └── timingPhases.ts
 ├── hooks/
 │   ├── useHarStore.ts
-│   ├── useUrlPathSelection.ts   # Pathname-first picker for content/header diff
+│   ├── useUrlPathSelection.ts   # Pathname-first picker (entry diff)
+│   ├── useEntryDiffSelection.ts
 │   └── useEntryBody.ts         # On-demand body load from IndexedDB (v2)
 ├── workers/
 │   └── harParse.worker.ts      # Optional large-HAR parse (feature-flagged)
@@ -154,7 +170,10 @@ har_analyzer/
 │   ├── homeInsights.ts         # Cheap home-page rollups
 │   ├── entrySearch.ts          # Shared details-table search filter
 │   ├── bodyId.ts
+│   ├── contentType.ts          # HAR mime vs header resolution + backfill
 │   ├── contentDiff.ts
+│   ├── entryDiff.ts
+│   ├── mimeMismatch.ts
 │   ├── headerDiff.ts
 │   ├── perfStats.ts
 │   ├── perfFormat.ts

@@ -1,5 +1,10 @@
 import { HarFile, HarAnalysis, EntryRecord, HarStore } from "@/types/har";
 import { newBodyId } from "@/utils/bodyId";
+import {
+  resolveContentType,
+  enrichEntryContentType,
+  rebuildContentTypeCounts,
+} from "@/utils/contentType";
 
 export async function parseHarFile(file: File): Promise<HarFile> {
   return new Promise((resolve, reject) => {
@@ -20,11 +25,6 @@ export async function parseHarFile(file: File): Promise<HarFile> {
     reader.onerror = () => reject(new Error("Failed to read file"));
     reader.readAsText(file);
   });
-}
-
-function normalizeContentType(mimeType: string): string {
-  if (!mimeType) return "unknown";
-  return mimeType.split(";")[0].trim().toLowerCase();
 }
 
 // Parse "name=value; name2=value2" from a Cookie request header
@@ -71,15 +71,17 @@ export function analyzeHar(
     const method = entry.request?.method ?? "";
     const status = entry.response?.status ?? 0;
     const statusText = entry.response?.statusText ?? "";
-    const contentType = normalizeContentType(
+    const requestHeaders = entry.request?.headers ?? [];
+    const responseHeaders = entry.response?.headers ?? [];
+    const resolved = resolveContentType(
       entry.response?.content?.mimeType ?? "",
+      responseHeaders,
     );
+    const contentType = resolved.contentType;
     const contentSize = entry.response?.content?.size ?? 0;
     const bodySize = entry.response?.bodySize ?? 0;
     const time = entry.time ?? 0;
     const startedDateTime = entry.startedDateTime ?? "";
-    const requestHeaders = entry.request?.headers ?? [];
-    const responseHeaders = entry.response?.headers ?? [];
     const serverIPAddress = entry.serverIPAddress ?? "";
     const userAgent =
       requestHeaders.find((h) => h.name.toLowerCase() === "user-agent")
@@ -114,6 +116,10 @@ export function analyzeHar(
       status,
       statusText,
       contentType,
+      contentMimeType: resolved.contentMimeType,
+      headerContentType: resolved.headerContentType,
+      contentTypeFromHeader: resolved.contentTypeFromHeader,
+      contentTypeSourcesAgree: resolved.contentTypeSourcesAgree,
       contentSize,
       bodySize,
       time,
@@ -165,15 +171,21 @@ export function buildHarStore(analyses: HarAnalysis[]): HarStore {
   return { version: 2, analyses: normalizeAnalyses(analyses) };
 }
 
-/** Ensure every entry has a stable index within its file (legacy IDB backfill). */
+/** Ensure stable index + resolved content types (legacy IDB backfill). */
 export function normalizeAnalyses(analyses: HarAnalysis[]): HarAnalysis[] {
-  return analyses.map((a) => ({
-    ...a,
-    entries: a.entries.map((e, indexInFile) => ({
-      ...e,
-      indexInFile: e.indexInFile ?? indexInFile,
-    })),
-  }));
+  return analyses.map((a) => {
+    const entries = a.entries.map((e, indexInFile) =>
+      enrichEntryContentType({
+        ...e,
+        indexInFile: e.indexInFile ?? indexInFile,
+      }),
+    );
+    return {
+      ...a,
+      entries,
+      contentTypeCounts: rebuildContentTypeCounts(entries),
+    };
+  });
 }
 
 export function getAllStatusCodes(analyses: HarAnalysis[]): number[] {

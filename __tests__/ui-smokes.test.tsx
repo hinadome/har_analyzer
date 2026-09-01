@@ -11,6 +11,8 @@ import { PageTitle as KvPageTitle, ResultsTable } from "@/components/kv-search/K
 import { PageTitle as CorsPageTitle, CorsRequestsTable } from "@/components/cors/CorsPanels";
 import { PageTitle as DiffPageTitle } from "@/components/performance-diff/DiffPanels";
 import { TruncationNotice } from "@/components/content-diff/ContentDiffPanels";
+import { ContentTypeSummary } from "@/components/shared/ContentTypeDisplay";
+import { PageTitle as MimePageTitle } from "@/components/mime-mismatch/MismatchPanels";
 import { UrlPathPicker } from "@/components/shared/UrlPathPicker";
 import type { HarAnalysis } from "@/types/har";
 import type { CorsReport } from "@/utils/corsAnalysis";
@@ -169,6 +171,46 @@ describe("performance-diff landmark", () => {
   });
 });
 
+describe("ContentTypeSummary", () => {
+  it("shows HAR vs header breakdown when sources disagree", () => {
+    render(
+      <ContentTypeSummary
+        entry={{
+          harFileIndex: 0,
+          harFileName: "a.har",
+          indexInFile: 0,
+          url: "https://example.com/app.js",
+          method: "GET",
+          status: 200,
+          statusText: "OK",
+          contentType: "text/javascript",
+          contentMimeType: "x-unknown",
+          headerContentType: "text/javascript",
+          contentTypeFromHeader: true,
+          contentTypeSourcesAgree: false,
+          contentSize: 0,
+          bodySize: 0,
+          time: 0,
+          startedDateTime: "",
+          requestHeaders: [],
+          responseHeaders: [
+            { name: "Content-Type", value: "text/javascript; charset=utf-8" },
+          ],
+          requestCookies: [],
+          responseCookies: [],
+          serverIPAddress: "",
+          userAgent: "",
+        }}
+      />,
+    );
+    expect(screen.getByText(/HAR content.mimeType/i)).toBeInTheDocument();
+    expect(screen.getByText(/x-unknown/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/text\/javascript; charset=utf-8/),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("content-diff landmark", () => {
   it("TruncationNotice renders truncation copy", () => {
     render(
@@ -182,6 +224,28 @@ describe("content-diff landmark", () => {
     expect(screen.getByText(/truncated/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Show full content/i }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("mime-mismatch landmark", () => {
+  it("PageTitle names the tool", () => {
+    render(
+      <MimePageTitle
+        fileCount={1}
+        report={{
+          files: [],
+          mismatchCount: 2,
+          unverifiedCount: 1,
+          withExtensionCount: 10,
+        }}
+        visibleCount={2}
+        scope="all"
+        showUnverified={false}
+      />,
+    );
+    expect(
+      screen.getByRole("heading", { name: "MIME mismatch" }),
     ).toBeInTheDocument();
   });
 });

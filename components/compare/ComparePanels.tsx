@@ -5,6 +5,7 @@ import Link from "next/link";
 import { HarAnalysis, EntryRecord, HarHeader } from "@/types/har";
 import { formatBytes, formatTime } from "@/utils/harParser";
 import StatusBadge from "@/components/StatusBadge";
+import { ContentTypeCell } from "@/components/shared/ContentTypeDisplay";
 import { statusColorClass } from "@/components/StatusBadge";
 import { TIMING_PHASES } from "@/components/timingPhases";
 import { useEntryBody } from "@/hooks/useEntryBody";
@@ -475,10 +476,10 @@ export function PerFileRow({ row }: { row: FileSummaryRow }) {
                     </span>
                     <Link
                       href={`/details?type=contentType&value=${encodeURIComponent(entry.contentType)}`}
-                      className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:text-purple-300 font-mono text-xs ml-auto"
+                      className="ml-auto hover:underline"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {entry.contentType}
+                      <ContentTypeCell entry={entry} />
                     </Link>
                     <Link
                       href={`/entry/${analysis.fileIndex}/${entryIndexMap.get(entry) ?? 0}`}

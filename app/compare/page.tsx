@@ -9,6 +9,7 @@ import { LoadingState } from "@/components/shell/LoadingState";
 import { useHarStore } from "@/hooks/useHarStore";
 import { formatBytes, formatTime } from "@/utils/harParser";
 import StatusBadge from "@/components/StatusBadge";
+import { ContentTypeCell } from "@/components/shared/ContentTypeDisplay";
 import {
   PerFileRow,
   SortIcon,
@@ -424,9 +425,9 @@ function ComparePageContent() {
                     <td className="py-2.5 px-4 text-sm">
                       <Link
                         href={`/details?type=contentType&value=${encodeURIComponent(e.contentType)}`}
-                        className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:text-purple-300 hover:underline font-mono text-xs"
+                        className="hover:underline"
                       >
-                        {e.contentType}
+                        <ContentTypeCell entry={e} />
                       </Link>
                     </td>
                     <td className="py-2.5 px-4 text-sm font-mono text-slate-700 dark:text-slate-300 text-right">

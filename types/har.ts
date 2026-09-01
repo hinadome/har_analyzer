@@ -71,6 +71,14 @@ export interface EntryRecord {
   status: number;
   statusText: string;
   contentType: string;
+  /** Normalized `response.content.mimeType` from the HAR. */
+  contentMimeType: string;
+  /** Normalized `Content-Type` response header when present. */
+  headerContentType: string;
+  /** Effective type uses header when HAR content MIME is junk (x-unknown, etc.). */
+  contentTypeFromHeader: boolean;
+  /** False when HAR content MIME and header disagree on a real type. */
+  contentTypeSourcesAgree: boolean;
   contentSize: number;
   bodySize: number;
   time: number;

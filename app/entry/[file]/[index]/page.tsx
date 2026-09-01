@@ -4,6 +4,7 @@ import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import StatusBadge from "@/components/StatusBadge";
+import { ContentTypeSummary } from "@/components/shared/ContentTypeDisplay";
 import { useHarStore } from "@/hooks/useHarStore";
 import { formatBytes, formatTime } from "@/utils/harParser";
 import {
@@ -221,9 +222,7 @@ function SummaryCard({ entry }: { entry: EntryRecord }) {
     },
     {
       label: "Content-Type",
-      value: (
-        <span className="font-mono break-all">{entry.contentType || "—"}</span>
-      ),
+      value: <ContentTypeSummary entry={entry} />,
     },
     {
       label: "Size",
