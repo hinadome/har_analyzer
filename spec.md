@@ -42,7 +42,13 @@ After upload, the **home page** prioritizes a quick insight strip (totals, optio
 ### 1.3c Privacy controls
 
 - **Banner (first visit)** — dismissible notice that HARs may contain credentials and that data stays in this browser's IndexedDB. Dismissal is persisted in `localStorage` (`har_privacy_banner_dismissed=1`).
-- **Redact credentials before saving (opt-in, off by default)** — when checked, `redactAnalysis()` masks sensitive request/response headers (`Authorization`, `Cookie`, `Set-Cookie`, …), cookie values, and common token query params before the store is written. Real values remain available for CORS / kv-search workflows when redaction is off.
+- **Redact credentials before saving (opt-in, off by default)** — when checked, `redactAnalysis()` masks sensitive request/response headers (`Authorization`, `Cookie`, `Set-Cookie`, …), cookie values, and common token query params before the store is written. `saveHarStoreAsync()` also strips response bodies from entries, deletes existing cold body keys, and does not persist new body blobs. Real values (including bodies) remain available for CORS / kv-search / content diff when redaction is off.
+
+### 1.3d Client-side security hardening
+
+- **`?expand=` length cap** — `parseExpandParam()` (`utils/queryParams.ts`) returns `""` when the param exceeds 512 characters. Applied on `/cors`, `/kv-search`, `/mime-mismatch`, `/cache-validator`, and `/anomalies/[category]`.
+- **kv-search regex budget** — regex mode (`utils/kvSearch.ts`) enforces a 50 ms per-haystack CPU budget and a 1000-match cap. On timeout the search returns no hits and surfaces an inline error (`Pattern timed out — simplify the regex or narrow scope`).
+- **Safe external navigation** — `/compare` renders the page-title URL as a clickable `<a>` only when `isNavigableHttpUrl()` (`utils/safeUrl.ts`) accepts it (`http:` / `https:`). Other schemes (`javascript:`, `data:`, …) render as plain text.
 
 ### 1.4 File management
 
@@ -331,6 +337,8 @@ Displays a performance summary for a single loaded HAR file.
 
 Displays all recorded entries for a specific URL grouped by HAR file, enabling cross-file comparison.
 
+**Page header URL** — the captured URL is shown in a monospace block. When the URL uses `http:` or `https:`, it is a clickable external link (`target="_blank"`, `rel="noopener noreferrer"`). Non-HTTP(S) schemes render as plain text (no `href`) to avoid `javascript:` / `data:` navigation from HAR content.
+
 **Per-file summary row**: HAR file name, hit count, observed status codes, content types, avg/min/max response time, avg size, server IPs, user agents. Expandable to show individual entries.
 
 **Expanded entry detail** — clicking an individual request shows a tabbed panel:
@@ -517,7 +525,7 @@ Cross-Origin Resource Sharing **audit and inventory** backed by the pure analyze
 | `origin`   | one of the request `Origin` values seen | `""`    |
 | `expand`   | `<fileIndex>:<entryIndex>`              | `""`    |
 
-`expand` deep-links to a specific entry: when present on initial load, the matching row is pre-expanded and scrolled into view (issues table or CORS requests table).
+`expand` deep-links to a specific entry: when present on initial load, the matching row is pre-expanded and scrolled into view (issues table or CORS requests table). Values longer than **512 characters** are ignored (`parseExpandParam`).
 
 **Detection model:**
 
@@ -566,6 +574,7 @@ A free-text search page over every kv pair carried by the loaded HAR entries —
 - **No files loaded** — page shows the standard "No HAR files loaded" message and a link back to upload.
 - **Both inputs empty** — the results table renders an "Enter a name or value to search across request and response headers and cookies." placeholder. No work is done.
 - **Invalid regex (mode = `regex`)** — the offending input gains a red border and an inline `Invalid regex: …` message; the results table renders empty (no entries) until the pattern compiles.
+- **Regex timeout** — when a compiled pattern exceeds the per-haystack CPU budget (50 ms) or 1000 match iterations, the results table is empty and an inline `Pattern timed out — simplify the regex or narrow scope` message is shown for the offending side.
 
 **URL state:**
 
@@ -580,6 +589,8 @@ A free-text search page over every kv pair carried by the loaded HAR entries —
 | `file`    | `all` \| file index `[0, fileCount)`                                                        | `all`      |
 | `expand`  | `<harFileIndex>:<indexInFile>` of the row whose detail panel is open                        | `""`       |
 
+`expand` values longer than **512 characters** are ignored (`parseExpandParam`).
+
 Defaults are normalised out of the URL when serialised (e.g. all four scope tokens collapse to no `scope` param). All three text inputs (`name` / `value` / `url`) are debounced 150 ms before they update the URL.
 
 **Match semantics:**
@@ -588,7 +599,7 @@ Defaults are normalised out of the URL when serialised (e.g. all four scope toke
 | ---------- | ---------------------------------------------------------------------------------------------------------- |
 | `contains` | Substring search. Returns every non-overlapping occurrence (used for highlighting).                        |
 | `exact`    | Whole-string match against the kv field. Returns a single full-span match when it hits.                    |
-| `regex`    | JS `RegExp` (flags `g` or `gi`) evaluated against the kv field. Invalid pattern → inline warning, no hits. |
+| `regex`    | JS `RegExp` (flags `g` or `gi`) evaluated against the kv field. Invalid pattern → inline warning, no hits. Exceeds 50 ms / 1000 matches per haystack → timeout warning, no hits. |
 
 - **Same-pair AND** — when both `name` and `value` are supplied, both must match the **same** header/cookie entry (not just somewhere in the same HTTP request). An empty side is treated as a wildcard for that side.
 - **URL pre-filter** — `url` is an entry-level `contains` filter that is **always case-insensitive** and never honours `mode` / `cs` (those govern only the name / value kv matchers). Entries whose `entry.url` does not contain the needle are skipped before any kv matching runs. The filter composes as AND with name / value, and **alone is not a result driver** — when both `name` and `value` are empty the results table stays empty regardless of `url` (matches the "no needle = no results" rule).
@@ -678,13 +689,14 @@ Browser FileReader API  (or Web Worker when enabled — §1.3b)
        ▼
    analyzeHar()         — HarFile → HarAnalysis (aggregates + EntryRecord[])
        │
-       ├── optional redactAnalysis()  — when §1.3c toggle enabled
+       ├── optional redactAnalysis()  — when §1.3c toggle enabled (headers/cookies/URL params + strip bodies)
        │
        ▼
   buildHarStore()       — HarAnalysis[] → HarStore (version 2)
        │
        ▼
-  saveHarStoreAsync()   — hot blob + separate body keys → IndexedDB
+  saveHarStoreAsync()   — when redaction on: delete cold body keys + strip bodies;
+                          hot blob + separate body keys → IndexedDB
        │
   (on navigation)
        │
@@ -739,12 +751,13 @@ All routes share **`PageShell`** (`AppHeader`, back link, crumb) and common empt
 
 | Concern        | Approach                                                                                                                                                                     |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Privacy        | All processing is client-side; no network requests are made with HAR data. First-visit banner + opt-in credential redaction before IDB save (§1.3c).                         |
+| Privacy        | All processing is client-side; no network requests are made with HAR data. First-visit banner + opt-in credential redaction before IDB save (§1.3c); response bodies omitted from cold storage when redaction is on. §1.3d hardening: `?expand=` cap, kv-search regex budget, http(s)-only external links on `/compare`. |
 | Performance    | Default parse on main thread via `FileReader`; optional worker for large files (§1.3b). Response bodies split to cold IDB keys (§1.5) to keep the hot blob small. Derived entry arrays are memoized to avoid recomputation on unrelated re-renders. |
 | Storage limits | IndexedDB v2: metadata hot blob + per-body cold keys; quota errors surface inline on save. Legacy v1 stores migrate on load when possible.                                    |
 | Accessibility  | Semantic HTML table elements; keyboard-navigable sort headers and pagination controls                                                                                        |
 | Responsiveness | Horizontally scrollable tables on narrow viewports; shared shell with sticky header across tool pages                                                                          |
-| Testing        | `npm test` runs Vitest unit + RTL smoke tests (316+ at v0.2.0); `fixture-audits.har` covered in `__tests__/fixtureAudits.test.ts` |
+| Testing        | `npm test` runs Vitest unit + RTL smoke tests (324+ at v0.2.0); `fixture-audits.har` covered in `__tests__/fixtureAudits.test.ts` |
+| Toolchain      | Tailwind CSS 4.3.3 via `@tailwindcss/postcss`; Node 22 LTS for production deploy (`Dockerfile`, `deploy-vm.sh`); Tailwind ≥ 4.3.1 on Node 26+ avoids `DEP0205` build deprecation noise |
 
 ---
 

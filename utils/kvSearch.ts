@@ -85,10 +85,33 @@ export interface KvSearchOutcome {
 // Matcher compilation
 // ---------------------------------------------------------------------------
 
+/** Per-haystack CPU budget for regex mode (avoids tab freeze on ReDoS patterns). */
+export const REGEX_MATCH_BUDGET_MS = 50;
+export const REGEX_MAX_ITERATIONS = 1000;
+
+type MatchRunResult = MatchRange[] | null | "timeout";
+
 type Matcher =
   | { kind: "any" }
-  | { kind: "match"; run: (hay: string) => MatchRange[] | null }
+  | { kind: "match"; run: (hay: string) => MatchRunResult }
   | { kind: "error"; message: string };
+
+function execRegexWithBudget(re: RegExp, hay: string): MatchRunResult {
+  const deadline = Date.now() + REGEX_MATCH_BUDGET_MS;
+  const ranges: MatchRange[] = [];
+  re.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  let iterations = 0;
+  while ((m = re.exec(hay)) !== null) {
+    if (Date.now() > deadline || iterations >= REGEX_MAX_ITERATIONS) {
+      return "timeout";
+    }
+    iterations += 1;
+    if (m.index === re.lastIndex) re.lastIndex += 1;
+    ranges.push({ start: m.index, end: m.index + m[0].length });
+  }
+  return ranges.length > 0 ? ranges : null;
+}
 
 /**
  * Compile a needle into a matcher that returns the list of matching ranges in
@@ -151,17 +174,7 @@ export function compileMatcher(
   }
   return {
     kind: "match",
-    run: (hay) => {
-      const ranges: MatchRange[] = [];
-      re.lastIndex = 0;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(hay)) !== null) {
-        // Guard against zero-width matches that would otherwise loop forever.
-        if (m.index === re.lastIndex) re.lastIndex += 1;
-        ranges.push({ start: m.index, end: m.index + m[0].length });
-      }
-      return ranges.length > 0 ? ranges : null;
-    },
+    run: (hay) => execRegexWithBudget(re, hay),
   };
 }
 
@@ -246,6 +259,34 @@ export function searchEntries(
     return empty;
   }
 
+  const runSide = (
+    matcher: Matcher,
+    hay: string,
+    side: "name" | "value",
+  ): MatchRange[] | null | "abort" => {
+    if (matcher.kind !== "match") return null;
+    const result = matcher.run(hay);
+    if (result === "timeout") {
+      errors.push({
+        side,
+        message: "Pattern timed out — simplify the regex or narrow scope",
+      });
+      return "abort";
+    }
+    return result;
+  };
+
+  const abortEmpty = (): KvSearchOutcome => ({
+    hits: [],
+    summary: {
+      totalHits: 0,
+      totalMatches: 0,
+      perLocation: emptyPerLocation(),
+      filesTouched: 0,
+    },
+    errors,
+  });
+
   const hits: KvSearchHit[] = [];
   const perLocation = emptyPerLocation();
   const files = new Set<number>();
@@ -267,17 +308,19 @@ export function searchEntries(
         const nameRanges =
           nameMatcher.kind === "any"
             ? []
-            : nameMatcher.kind === "match"
-              ? (nameMatcher.run(pair.name) ?? null)
-              : null;
+            : runSide(nameMatcher, pair.name, "name");
+        if (nameRanges === "abort") {
+          return abortEmpty();
+        }
         if (nameMatcher.kind === "match" && nameRanges === null) continue;
 
         const valueRanges =
           valueMatcher.kind === "any"
             ? []
-            : valueMatcher.kind === "match"
-              ? (valueMatcher.run(pair.value) ?? null)
-              : null;
+            : runSide(valueMatcher, pair.value, "value");
+        if (valueRanges === "abort") {
+          return abortEmpty();
+        }
         if (valueMatcher.kind === "match" && valueRanges === null) continue;
 
         matches.push({

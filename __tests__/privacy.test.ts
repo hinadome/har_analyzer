@@ -90,6 +90,19 @@ describe("redactEntry / redactAnalysis", () => {
     expect(e.responseCookies[0].value).toBe(REDACTED);
   });
 
+  it("strips response bodies from redacted entries", () => {
+    const e = redactEntry(
+      entry({
+        responseContent: '{"token":"secret"}',
+        hasResponseBody: true,
+        bodyId: "body-1",
+      }),
+    );
+    expect(e.responseContent).toBeUndefined();
+    expect(e.bodyId).toBeUndefined();
+    expect(e.hasResponseBody).toBe(false);
+  });
+
   it("maps every entry in an analysis", () => {
     const analysis: HarAnalysis = {
       fileName: "a.har",

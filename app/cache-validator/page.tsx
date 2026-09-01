@@ -17,6 +17,7 @@ import {
   KpiSummary,
   PathGroupTable,
 } from "@/components/cache-validator/ValidatorPanels";
+import { parseExpandParam } from "@/utils/queryParams";
 import type { CacheValidatorQuery, FileScope } from "@/components/cache-validator/types";
 
 function parseQuery(sp: URLSearchParams, fileCount: number): CacheValidatorQuery {
@@ -29,7 +30,7 @@ function parseQuery(sp: URLSearchParams, fileCount: number): CacheValidatorQuery
   return {
     file,
     showNoValidator: sp.get("no-validator") === "1",
-    expand: sp.get("expand") ?? "",
+    expand: parseExpandParam(sp.get("expand")),
   };
 }
 

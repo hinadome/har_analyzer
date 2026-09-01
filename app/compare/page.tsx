@@ -16,6 +16,7 @@ import {
   type FileSummaryRow,
   type SortField,
 } from "@/components/compare/ComparePanels";
+import { isNavigableHttpUrl } from "@/utils/safeUrl";
 
 export default function ComparePage() {
   return (
@@ -200,14 +201,18 @@ function ComparePageContent() {
             </div>
           </div>
           <p className="text-slate-900 dark:text-slate-100 font-mono text-sm break-all bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3">
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:underline text-blue-700 dark:text-blue-300"
-            >
-              {url}
-            </a>
+            {isNavigableHttpUrl(url) ? (
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline text-blue-700 dark:text-blue-300"
+              >
+                {url}
+              </a>
+            ) : (
+              url
+            )}
           </p>
         </div>
 

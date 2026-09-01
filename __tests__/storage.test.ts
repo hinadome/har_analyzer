@@ -6,6 +6,7 @@ import {
   migrateLegacyStore,
   collectBodyIds,
 } from "@/utils/storage";
+import { stripStoreBodies } from "@/utils/privacy";
 import type { EntryRecord, HarStore } from "@/types/har";
 
 function entry(partial: Partial<EntryRecord> & Pick<EntryRecord, "url">): EntryRecord {
@@ -90,6 +91,38 @@ describe("prepareStoreForPersist", () => {
     };
     const { bodies } = prepareStoreForPersist(store);
     expect(bodies).toEqual([]);
+  });
+
+  it("stripStoreBodies yields no cold body pairs on persist", () => {
+    const store: HarStore = {
+      analyses: [
+        {
+          fileName: "a.har",
+          fileIndex: 0,
+          totalRequests: 1,
+          totalContentSize: 4,
+          statusCodeCounts: { 200: 1 },
+          methodCounts: { GET: 1 },
+          contentTypeCounts: { "text/plain": 1 },
+          contentSizeBucketCounts: {},
+          serverIPCounts: {},
+          uniqueUrlCount: 1,
+          entries: [
+            entry({
+              url: "https://x",
+              responseContent: "body",
+              hasResponseBody: true,
+              bodyId: "id-1",
+            }),
+          ],
+        },
+      ],
+    };
+    const stripped = { ...store, ...stripStoreBodies(store) };
+    const { hot, bodies } = prepareStoreForPersist(stripped);
+    expect(bodies).toEqual([]);
+    expect(hot.analyses[0].entries[0].hasResponseBody).toBe(false);
+    expect(hot.analyses[0].entries[0].bodyId).toBeUndefined();
   });
 });
 

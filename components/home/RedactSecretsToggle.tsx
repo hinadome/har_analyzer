@@ -41,7 +41,8 @@ export function RedactSecretsToggle({ disabled }: RedactSecretsToggleProps) {
         </span>
         <span className="block text-xs text-slate-500 dark:text-slate-500 mt-0.5">
           Masks Authorization, Cookie / Set-Cookie, and common token query
-          params. Off by default so CORS and kv-search keep real values.
+          params. Response bodies are not saved to IndexedDB. Off by default so
+          CORS and kv-search keep real values.
         </span>
       </span>
     </label>

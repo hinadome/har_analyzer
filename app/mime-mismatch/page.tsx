@@ -13,6 +13,7 @@ import {
   KpiSummary,
   MismatchTable,
 } from "@/components/mime-mismatch/MismatchPanels";
+import { parseExpandParam } from "@/utils/queryParams";
 import type { FileScope, MimeMismatchQuery } from "@/components/mime-mismatch/types";
 
 function parseQuery(sp: URLSearchParams, fileCount: number): MimeMismatchQuery {
@@ -25,7 +26,7 @@ function parseQuery(sp: URLSearchParams, fileCount: number): MimeMismatchQuery {
   return {
     file,
     showUnverified: sp.get("unverified") === "1",
-    expand: sp.get("expand") ?? "",
+    expand: parseExpandParam(sp.get("expand")),
   };
 }
 

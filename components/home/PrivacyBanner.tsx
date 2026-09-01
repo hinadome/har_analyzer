@@ -42,8 +42,8 @@ export function PrivacyBanner() {
         <p className="text-amber-800/90 dark:text-amber-100/80 leading-relaxed">
           Uploaded files stay in this browser&apos;s IndexedDB — nothing is sent
           to a server. Clear all removes local data. Optionally redact
-          Authorization, Cookie headers, and common token query params before
-          saving.
+          Authorization, Cookie headers, common token query params, and omit
+          response bodies before saving.
         </p>
       </div>
       <button

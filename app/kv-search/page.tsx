@@ -27,6 +27,7 @@ import {
   SummaryLine,
   ResultsTable,
 } from "@/components/kv-search/KvSearchPanels";
+import { parseExpandParam } from "@/utils/queryParams";
 
 function parseMode(raw: string | null): KvSearchMode {
   return raw === "exact" || raw === "regex" ? raw : "contains";
@@ -47,7 +48,7 @@ function parseQuery(sp: URLSearchParams, fileCount: number): PageQuery {
     mode: parseMode(sp.get("mode")),
     caseSensitive: sp.get("cs") === "1",
     file,
-    expand: sp.get("expand") ?? "",
+    expand: parseExpandParam(sp.get("expand")),
   };
 }
 

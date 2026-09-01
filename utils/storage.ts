@@ -2,6 +2,10 @@ import { get, set, del, delMany, setMany, keys } from "idb-keyval";
 import type { EntryRecord, HarAnalysis, HarStore } from "@/types/har";
 import { newBodyId } from "@/utils/bodyId";
 import { normalizeAnalyses } from "@/utils/harParser";
+import {
+  isRedactSecretsEnabled,
+  stripStoreBodies,
+} from "@/utils/privacy";
 
 export { newBodyId } from "@/utils/bodyId";
 
@@ -94,7 +98,15 @@ export function migrateLegacyStore(raw: HarStore): {
 
 export async function saveHarStoreAsync(store: HarStore): Promise<void> {
   try {
-    const { hot, bodies } = prepareStoreForPersist(store);
+    let toSave = store;
+    if (typeof window !== "undefined" && isRedactSecretsEnabled()) {
+      const bodyIds = collectBodyIds(store.analyses);
+      if (bodyIds.length > 0) {
+        await deleteBodiesAsync(bodyIds);
+      }
+      toSave = { ...store, ...stripStoreBodies(store) };
+    }
+    const { hot, bodies } = prepareStoreForPersist(toSave);
     if (bodies.length > 0) {
       await setMany(bodies);
     }

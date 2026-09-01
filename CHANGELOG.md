@@ -12,7 +12,7 @@ Major UI refresh and internal refactor. Analysis engines are unchanged; pages ar
 - **Upload progress UI** — file name (and size for multi-MB files) shown in the upload zone and loading state while parsing.
 - **Optional Web Worker parse** (`workers/harParse.worker.ts`, `utils/parseHar.ts`) — feature-flagged for files ≥ 5 MB (`localStorage har_parse_worker=1` or `NEXT_PUBLIC_HAR_PARSE_WORKER=1`); main-thread fallback retained.
 - **`/kv-search` pagination** — results capped at 50 rows per page with prev/next controls and deep-link page jump for `?expand=`.
-- **Privacy controls** — dismissible first-visit banner (`components/home/PrivacyBanner.tsx`); opt-in **Redact credentials before saving** toggle (`utils/privacy.ts`, `components/home/RedactSecretsToggle.tsx`) masks `Authorization`, `Cookie` / `Set-Cookie`, and common token query params before IndexedDB save (off by default).
+- **Privacy controls** — dismissible first-visit banner (`components/home/PrivacyBanner.tsx`); opt-in **Redact credentials before saving** toggle (`utils/privacy.ts`, `components/home/RedactSecretsToggle.tsx`) masks `Authorization`, `Cookie` / `Set-Cookie`, and common token query params and omits response bodies from IndexedDB on save (off by default).
 - **CORS request inventory** (`CorsRequestsTable` in `components/cors/CorsPanels.tsx`) — paginated table of every cross-origin and preflight entry (type, origin, ACAO, credentialed flag, findings count) with expandable handshake panels. When the audit is clean, this table is shown **above** the empty findings panel so `/cors` is useful even with zero issues.
 - **`/entry-diff`** — unified entry comparison page with **Headers | Content** tabs, status chips on each tab, shared pathname picker and entry table (content type, size, header/cookie counts, body badges). Response bodies load only when the Content tab is active. Tab choice is local React state. `hooks/useEntryDiffSelection.ts`, `utils/entryDiff.ts`, and `components/entry-diff/` hold selection, tab status, metadata bar, entry table, and content result panel.
 - **Shared URL/path picker** — `components/shared/UrlPathPicker.tsx` + `hooks/useUrlPathSelection.ts` used by `/entry-diff`.
@@ -22,7 +22,7 @@ Major UI refresh and internal refactor. Analysis engines are unchanged; pages ar
 - **Content-Type resolution** — HAR `content.mimeType` and `Content-Type` header stored separately; effective type uses header when HAR MIME is junk (`x-unknown`, etc.). Entry summary shows both when they disagree; list tables show **from header** / **≠ HAR** chip. Content Types counts use effective type; legacy entries backfill from response headers on load.
 - **Extracted route panels** — large JSX moved out of god pages into `components/compare/`, `components/content-diff/`, `components/cors/`, `components/kv-search/`, `components/performance/`, and `components/performance-diff/`.
 - **`npm test`** script — runs `vitest run`.
-- **Test hardening** — preservation/bug tests import real `ComparisonTableCell` and `filterEntriesBySearch`; RTL smokes for home, shell, kv-search, cors, perf-diff, content-diff, mime-mismatch, cache-validator, and anomalies landmarks; `HeaderDiffView` layout tests; `fixture-audits.har` integration in `__tests__/fixtureAudits.test.ts`. 316+ tests at time of release.
+- **Test hardening** — preservation/bug tests import real `ComparisonTableCell` and `filterEntriesBySearch`; RTL smokes for home, shell, kv-search, cors, perf-diff, content-diff, mime-mismatch, cache-validator, and anomalies landmarks; `HeaderDiffView` layout tests; `fixture-audits.har` integration in `__tests__/fixtureAudits.test.ts`. 324+ tests at time of release.
 - **`sample-hars/fixture-audits.har`** — single-file fixture with intentional MIME, cache-validator, anomalies, and Content-Type triggers; `sample-hars/README.md` catalog; regenerate via `node scripts/generate-fixture-audits.mjs`.
 
 ### Changed
@@ -43,6 +43,14 @@ Major UI refresh and internal refactor. Analysis engines are unchanged; pages ar
 - **Entry Diff header panel layout** — Request Headers, Response Headers, Request Cookies, and Response Cookies now use matching card shells in a **2×2 grid** (request vs response side by side on large screens). Each section has a consistent header (title + `empty` / `identical` / `N changes` badge), padded body, and fixed-column diff table; empty sections show **None** inside the card instead of unstyled text.
 - **Entry Diff body badges** — entry table distinguishes **binary** (non-text MIME) from **no body** (`response.content.text` missing in the HAR, even when `content.size` > 0 — common for redirects and beacons). Hash / no-diff fallback messages match the case. Entry detail Content card uses the same distinction.
 - **Entry Diff entry keys** — `entryId()` uses `{harFileIndex}::{indexInFile}` (`indexInFile` set at parse, backfilled on IndexedDB load) so duplicate URL + timestamp rows no longer trigger React duplicate-key warnings.
+- **Tailwind CSS 4.3.3** — `tailwindcss` / `@tailwindcss/postcss` bumped from 4.2.2; `@tailwindcss/node` prefers `Module.registerHooks()` on Node 22.15+ / 26+, eliminating the `DEP0205 module.register() is deprecated` build warning.
+
+### Security hardening
+
+- **Credential redaction scope** — when **Redact credentials before saving** is enabled, `redactAnalysis()` / `saveHarStoreAsync()` now also strip response bodies from memory and **omit cold IndexedDB body blobs** on save (existing cold keys deleted on re-save). UI copy updated in `PrivacyBanner` and `RedactSecretsToggle`.
+- **`?expand=` cap** — `parseExpandParam()` in `utils/queryParams.ts` ignores values over 512 characters on `/cors`, `/kv-search`, `/mime-mismatch`, `/cache-validator`, and `/anomalies/[category]`.
+- **kv-search regex budget** — regex mode enforces a 50 ms per-haystack / 1000-match cap; timeout surfaces as an inline error instead of freezing the tab (`utils/kvSearch.ts`).
+- **Safe external links** — `/compare` renders the captured URL as a clickable link only for `http:` / `https:` (`utils/safeUrl.ts`); `javascript:` / `data:` URLs display as plain text.
 
 ### Internal (no intentional behavior change)
 

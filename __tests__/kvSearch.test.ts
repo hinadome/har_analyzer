@@ -403,6 +403,26 @@ describe("searchEntries — url pre-filter", () => {
     expect(out.hits[0].matches).toHaveLength(1);
     expect(out.hits[0].matches[0].location).toBe("request-header");
   });
+
+  it("regex mode reports timeout when match budget is exceeded", () => {
+    const hay = "a".repeat(2000);
+    const entry = makeEntry({
+      requestHeaders: [h("X-Test", hay)],
+    });
+    const out = searchEntries(
+      [entry],
+      q({ name: "", value: "a", mode: "regex" }),
+    );
+    expect(out.hits).toHaveLength(0);
+    expect(out.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          side: "value",
+          message: expect.stringContaining("timed out"),
+        }),
+      ]),
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

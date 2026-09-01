@@ -114,15 +114,48 @@ export function redactUrl(url: string): string {
   }
 }
 
-export function redactEntry(entry: EntryRecord): EntryRecord {
+/** Remove persisted / in-memory response bodies from an entry. */
+export function stripEntryBodies(entry: EntryRecord): EntryRecord {
+  if (
+    !entry.hasResponseBody &&
+    entry.bodyId === undefined &&
+    entry.responseContent === undefined
+  ) {
+    return entry;
+  }
+  const { responseContent: _c, bodyId: _b, ...rest } = entry;
   return {
+    ...rest,
+    hasResponseBody: false,
+    responseContent: undefined,
+    bodyId: undefined,
+  };
+}
+
+export function stripAnalysisBodies(analysis: HarAnalysis): HarAnalysis {
+  return {
+    ...analysis,
+    entries: analysis.entries.map(stripEntryBodies),
+  };
+}
+
+export function stripStoreBodies(store: { analyses: HarAnalysis[] }): {
+  analyses: HarAnalysis[];
+} {
+  return {
+    analyses: store.analyses.map(stripAnalysisBodies),
+  };
+}
+
+export function redactEntry(entry: EntryRecord): EntryRecord {
+  return stripEntryBodies({
     ...entry,
     url: redactUrl(entry.url),
     requestHeaders: redactHeaders(entry.requestHeaders),
     responseHeaders: redactHeaders(entry.responseHeaders),
     requestCookies: redactCookies(entry.requestCookies),
     responseCookies: redactCookies(entry.responseCookies),
-  };
+  });
 }
 
 export function redactAnalysis(analysis: HarAnalysis): HarAnalysis {

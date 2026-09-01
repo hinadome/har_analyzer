@@ -14,6 +14,7 @@ import {
   type AnomalyCategoryQuery,
   type FileScope,
 } from "@/utils/anomalies";
+import { parseExpandParam } from "@/utils/queryParams";
 import {
   CategoryTitle,
   CategoryFilterBar,
@@ -30,7 +31,7 @@ function parseQuery(sp: URLSearchParams, fileCount: number): AnomalyCategoryQuer
   }
   return {
     file,
-    expand: sp.get("expand") ?? "",
+    expand: parseExpandParam(sp.get("expand")),
   };
 }
 

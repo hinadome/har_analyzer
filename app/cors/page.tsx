@@ -16,6 +16,7 @@ import {
   CorsRequestsTable,
   PreflightPairsSection,
 } from "@/components/cors/CorsPanels";
+import { parseExpandParam } from "@/utils/queryParams";
 
 function parseQuery(sp: URLSearchParams, fileCount: number): CorsQuery {
   const fileParam = sp.get("file") ?? "all";
@@ -31,7 +32,7 @@ function parseQuery(sp: URLSearchParams, fileCount: number): CorsQuery {
     file,
     severity,
     origin: sp.get("origin") ?? "",
-    expand: sp.get("expand") ?? "",
+    expand: parseExpandParam(sp.get("expand")),
   };
 }
 

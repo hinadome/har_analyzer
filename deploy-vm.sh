@@ -72,6 +72,9 @@ if [[ "${1:-}" == "--update" ]]; then
   echo "  Anomalies:    /anomalies — status, size (2x/10KB), encoding, cache-policy; hub + categories."
   echo "  Fixture:      upload sample-hars/fixture-audits.har for deterministic audit smoke."
   echo "  Content-Type: entry detail split when HAR mime is x-unknown but header is real."
+  echo "  Security:     redact toggle omits response bodies; /compare links http(s) only;"
+  echo "                kv-search regex has CPU budget; ?expand= capped at 512 chars."
+  echo "  Build:        Tailwind 4.3.3+ avoids DEP0205 on Node 26; VM uses Node ${NODE_VERSION}."
   echo "  Optional worker: export NEXT_PUBLIC_HAR_PARSE_WORKER=1 before rebuild."
   exit 0
 fi
@@ -185,5 +188,8 @@ echo "  Cache:      /cache-validator — ETag / Last-Modified drift; W vs S chip
 echo "  Anomalies:  /anomalies — status, size (2x/10KB), encoding, cache-policy; hub + categories."
 echo "  Fixture:    upload sample-hars/fixture-audits.har for deterministic audit smoke."
 echo "  Content-Type: entry detail split when HAR mime is x-unknown but header is real."
+echo "  Security:   redact toggle omits response bodies; /compare links http(s) only;"
+echo "              kv-search regex has CPU budget; ?expand= capped at 512 chars."
+echo "  Build:      Tailwind 4.3.3+ avoids DEP0205 on Node 26; VM uses Node ${NODE_VERSION}."
 echo "  Worker:     export NEXT_PUBLIC_HAR_PARSE_WORKER=1 && bash $APP_DIR/deploy-vm.sh --update"
 echo "  See DEPLOYMENT.md for full post-deploy verification checklist."
