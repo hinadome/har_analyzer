@@ -6,7 +6,7 @@ Major UI refresh and internal refactor. Analysis engines are unchanged; pages ar
 
 ### Added
 
-- **Shared page shell** — `AppHeader`, `PageShell`, `EmptyState`, and `LoadingState` used across all 12 routes; per-file color chips consolidated in `components/shared/fileColors.ts`.
+- **Shared page shell** — `AppHeader`, `PageShell`, `EmptyState`, and `LoadingState` used across all 13 routes; per-file color chips consolidated in `components/shared/fileColors.ts`.
 - **Home insight strip** (`utils/homeInsights.ts`, `components/home/InsightStrip.tsx`) — cheap rollups (requests, errors, size, files) and optional pair deltas without walking entry arrays. Primary CTA: one file → `/file/0`; two or more → `/performance/diff`. Full comparison table collapsed behind **Full metrics table**; **Tools** row links to every analyzer route.
 - **IndexedDB store v2** — hot blob (`har_analyzer_data`, version 2) holds entry metadata only; response bodies persist under `har_analyzer_body:{bodyId}` and load on demand via `useEntryBody` for `/entry`, compare Content tab, and content diff. Legacy single-blob stores migrate on read (re-upload if needed).
 - **Upload progress UI** — file name (and size for multi-MB files) shown in the upload zone and loading state while parsing.
@@ -17,10 +17,11 @@ Major UI refresh and internal refactor. Analysis engines are unchanged; pages ar
 - **`/entry-diff`** — unified entry comparison page with **Headers | Content** tabs, status chips on each tab, shared pathname picker and entry table (content type, size, header/cookie counts, body badges). Response bodies load only when the Content tab is active. Tab choice is local React state. `hooks/useEntryDiffSelection.ts`, `utils/entryDiff.ts`, and `components/entry-diff/` hold selection, tab status, metadata bar, entry table, and content result panel.
 - **Shared URL/path picker** — `components/shared/UrlPathPicker.tsx` + `hooks/useUrlPathSelection.ts` used by `/entry-diff`.
 - **`/mime-mismatch`** — audits response `Content-Type` against URL pathname extension; **MIME mismatch** in Tools with count badge (or **clear**). Unknown extensions hidden by default; **Show unverified extensions** toggle. Insight strip when mismatches exist.
+- **`/cache-validator`** — groups entries by pathname (query ignored) and flags paths where ETag or Last-Modified differs across entries. **Cache validator** in Tools with path-count badge (or **clear**); insight strip when drift exists. Weak ETags (`W/`) compared separately from strong — **W** (dashed violet) vs **S** (solid slate) chips in the UI. Expandable path-group table with entry list and **Entry diff →** deep link. Optional **Show paths with no cache validators** toggle.
 - **Content-Type resolution** — HAR `content.mimeType` and `Content-Type` header stored separately; effective type uses header when HAR MIME is junk (`x-unknown`, etc.). Entry summary shows both when they disagree; list tables show **from header** / **≠ HAR** chip. Content Types counts use effective type; legacy entries backfill from response headers on load.
 - **Extracted route panels** — large JSX moved out of god pages into `components/compare/`, `components/content-diff/`, `components/cors/`, `components/kv-search/`, `components/performance/`, and `components/performance-diff/`.
 - **`npm test`** script — runs `vitest run`.
-- **Test hardening** — preservation/bug tests import real `ComparisonTableCell` and `filterEntriesBySearch`; RTL smokes for home, shell, kv-search, cors, perf-diff, and content-diff landmarks; `HeaderDiffView` layout tests. 250+ tests at time of release.
+- **Test hardening** — preservation/bug tests import real `ComparisonTableCell` and `filterEntriesBySearch`; RTL smokes for home, shell, kv-search, cors, perf-diff, content-diff, mime-mismatch, and cache-validator landmarks; `HeaderDiffView` layout tests. 300+ tests at time of release.
 
 ### Changed
 
@@ -30,8 +31,8 @@ Major UI refresh and internal refactor. Analysis engines are unchanged; pages ar
 - **`/cors` page title** — renamed from "CORS Audit" to **CORS**; subtitle describes audit + inventory. Clean-state findings panel points users to the request inventory below (or above when promoted).
 - **`FileUpload`** — accepts optional `progressMessage` while parsing.
 - **`app/details/page.tsx`** — search filter extracted to `utils/entrySearch.ts` (`filterEntriesBySearch`).
-- **`DEPLOYMENT.md`** — 0.2.0 deploy guide: client-only architecture, pre-deploy `npm test`, worker chunks under `.next/static/`, `NEXT_PUBLIC_HAR_PARSE_WORKER` build arg, post-deploy smoke checklist (home insight, CORS inventory, privacy controls, `/entry-diff` pathname selection and Headers | Content tabs, **no body** vs **binary** badges).
-- **`deploy-vm.sh`** — runs `npm test` before build; copies static assets to `.next/standalone/.next/static/` (matches Dockerfile); post-deploy smoke hints (entry-diff tabs, body badges); honours `NEXT_PUBLIC_HAR_PARSE_WORKER` at build time when exported.
+- **`DEPLOYMENT.md`** — 0.2.0 deploy guide: client-only architecture, pre-deploy `npm test`, worker chunks under `.next/static/`, `NEXT_PUBLIC_HAR_PARSE_WORKER` build arg, post-deploy smoke checklist (home insight, CORS inventory, privacy controls, `/entry-diff`, `/mime-mismatch`, `/cache-validator`, Content-Type resolution).
+- **`deploy-vm.sh`** — runs `npm test` before build; copies static assets to `.next/standalone/.next/static/` (matches Dockerfile); post-deploy smoke hints (entry-diff, mime-mismatch, cache-validator, Content-Type split); honours `NEXT_PUBLIC_HAR_PARSE_WORKER` at build time when exported.
 - **`Dockerfile` / `docker-compose.yml`** — optional `NEXT_PUBLIC_HAR_PARSE_WORKER` build arg.
 - **`spec.md`** — synced for 0.2.0: home insight strip / Tools row, IndexedDB v2, privacy + worker flags, CORS inventory page, kv-search pagination, `PageShell`, pathname-first `/entry-diff`, updated data-flow and NFR sections.
 - **Entry Diff pathname selection** — default match is **pathname only** (not origin + path), so `/hello` on different hosts is one set. Query strings and fragments are ignored for grouping and entry matching; rows still **display** the full URL including query. Shared `UrlPathPicker` + `useUrlPathSelection`; banner **Selected path**; `?url=` deep links normalize via `pathKey()`. **Match full URL** remains the escape hatch (exact URL including query).

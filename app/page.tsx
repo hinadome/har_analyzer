@@ -19,6 +19,7 @@ import {
 import { useHarStore, updateHarStoreCache } from "@/hooks/useHarStore";
 import { analyzeStore as analyzeCorsStore } from "@/utils/corsAnalysis";
 import { analyzeStore as analyzeMimeMismatchStore } from "@/utils/mimeMismatch";
+import { analyzeStore as analyzeCacheValidatorStore } from "@/utils/cacheValidator";
 import { computeHomeInsights } from "@/utils/homeInsights";
 import {
   isRedactSecretsEnabled,
@@ -49,12 +50,17 @@ export default function HomePage() {
     [analyses],
   );
 
+  const cacheReport = useMemo(
+    () => (analyses.length > 0 ? analyzeCacheValidatorStore(analyses) : null),
+    [analyses],
+  );
+
   const insights = useMemo(
     () =>
       analyses.length > 0
-        ? computeHomeInsights(analyses, corsReport, mimeReport)
+        ? computeHomeInsights(analyses, corsReport, mimeReport, cacheReport)
         : null,
-    [analyses, corsReport, mimeReport],
+    [analyses, corsReport, mimeReport, cacheReport],
   );
 
   const handleFilesSelected = async (files: File[]) => {
@@ -289,6 +295,19 @@ export default function HomePage() {
                     {insights.mimeMismatch.mismatchCount}
                   </span>
                 ) : insights.mimeMismatch ? (
+                  <span className="text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400 font-semibold">
+                    clear
+                  </span>
+                ) : null}
+              </Link>
+              <Link href="/cache-validator" className={toolLinkClass}>
+                Cache validator
+                {insights.cacheValidator &&
+                insights.cacheValidator.pathConflictCount > 0 ? (
+                  <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold leading-none">
+                    {insights.cacheValidator.pathConflictCount}
+                  </span>
+                ) : insights.cacheValidator ? (
                   <span className="text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400 font-semibold">
                     clear
                   </span>

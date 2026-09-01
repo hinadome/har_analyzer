@@ -68,6 +68,7 @@ if [[ "${1:-}" == "--update" ]]; then
   echo "  Entry diff:   /entry-diff — Headers | Content tabs; pathname selection; body badges."
   echo "  Legacy:       /content-diff → ?section=content; /header-diff → ?section=headers"
   echo "  MIME:         /mime-mismatch — extension vs effective Content-Type; unverified toggle."
+  echo "  Cache:        /cache-validator — ETag / Last-Modified drift; W vs S chips; expand entries."
   echo "  Content-Type: entry detail split when HAR mime is x-unknown but header is real."
   echo "  Optional worker: export NEXT_PUBLIC_HAR_PARSE_WORKER=1 before rebuild."
   exit 0
@@ -178,6 +179,7 @@ echo "  CORS:       /cors should list cross-origin requests even when audit is c
 echo "  Entry diff: /entry-diff — Headers | Content tabs; lazy body load on Content tab."
 echo "  Legacy:     /content-diff → ?section=content; /header-diff → ?section=headers"
 echo "  MIME:       /mime-mismatch — extension vs effective Content-Type; unverified toggle."
+echo "  Cache:      /cache-validator — ETag / Last-Modified drift; W vs S chips; expand entries."
 echo "  Content-Type: entry detail split when HAR mime is x-unknown but header is real."
 echo "  Worker:     export NEXT_PUBLIC_HAR_PARSE_WORKER=1 && bash $APP_DIR/deploy-vm.sh --update"
 echo "  See DEPLOYMENT.md for full post-deploy verification checklist."

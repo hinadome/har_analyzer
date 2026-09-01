@@ -13,6 +13,7 @@ import { PageTitle as DiffPageTitle } from "@/components/performance-diff/DiffPa
 import { TruncationNotice } from "@/components/content-diff/ContentDiffPanels";
 import { ContentTypeSummary } from "@/components/shared/ContentTypeDisplay";
 import { PageTitle as MimePageTitle } from "@/components/mime-mismatch/MismatchPanels";
+import { PageTitle as CacheValidatorPageTitle } from "@/components/cache-validator/ValidatorPanels";
 import { UrlPathPicker } from "@/components/shared/UrlPathPicker";
 import type { HarAnalysis } from "@/types/har";
 import type { CorsReport } from "@/utils/corsAnalysis";
@@ -224,6 +225,30 @@ describe("content-diff landmark", () => {
     expect(screen.getByText(/truncated/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Show full content/i }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("cache-validator landmark", () => {
+  it("PageTitle names the tool", () => {
+    render(
+      <CacheValidatorPageTitle
+        fileCount={1}
+        report={{
+          files: [],
+          groups: [],
+          noValidatorGroups: [],
+          pathConflictCount: 2,
+          entryCount: 5,
+          noValidatorPathCount: 0,
+        }}
+        visibleGroupCount={2}
+        scope="all"
+        showNoValidator={false}
+      />,
+    );
+    expect(
+      screen.getByRole("heading", { name: "Cache validator" }),
     ).toBeInTheDocument();
   });
 });
