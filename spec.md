@@ -4,7 +4,7 @@
 
 HAR Analyzer is a client-side web application that ingests one or more HAR (HTTP Archive) files, parses them in the browser, and presents a comparative summary alongside drill-down detail views. All processing happens locally; no data is sent to a server.
 
-After upload, the **home page** prioritizes a quick insight strip (totals, optional pair deltas, severity-aware CORS chip) and a **Tools** row over the full comparison matrix, which remains one click away behind **Full metrics table**.
+After upload, the **home page** prioritizes a quick insight strip (totals, optional pair deltas, CORS chip when errors/warnings exist) and a **Tools** row over the full comparison matrix, which remains one click away behind **Full metrics table**.
 
 ---
 
@@ -174,7 +174,7 @@ Backed by `utils/homeInsights.ts` (`computeHomeInsights`) — uses per-file roll
 | Stat cards | Total requests · errors (4xx/5xx/0) · total size · file count |
 | Pair deltas | When ≥ 2 files: headline Δ for requests, errors, and bytes between files 0 and 1, linking to `/performance/diff?base=0&cmp=1` |
 | Primary CTA | One file → **Open file performance** (`/file/0`); two or more → **Compare two runs** (`/performance/diff`) |
-| CORS chip | Shown when `crossOriginCount > 0`. Copy is severity-aware: red **CORS audit — N errors**, amber **CORS — N warnings**, neutral **N cross-origin requests — all clear**. Links to `/cors` |
+| CORS chip | Shown when `crossOriginCount > 0` **and** the audit has errors or warnings (`shouldShowCorsInsight`). Copy is severity-aware: red **CORS audit — N errors**, amber **CORS — N warnings**. Clean CORS traffic is **not** shown on the strip — use Tools **CORS · clear** instead. Links to `/cors` |
 | MIME mismatch card | When `mismatchCount > 0` — links to `/mime-mismatch` |
 | Cache validator card | When `pathConflictCount > 0` — links to `/cache-validator` |
 | Anomalies card | When `uniquePathCount > 0` — links to `/anomalies`; subtitle summarizes category counts |
@@ -565,7 +565,7 @@ Findings carry an optional `detail: { sent?, expected?, received? }` triplet tha
 
 **Discovery links:**
 
-- Home page (`app/page.tsx`) — when `crossOriginCount > 0`, the **insight-strip CORS chip** (§3.2) and **Tools → CORS** link (§3.3) appear. Copy is severity-aware (errors / warnings / all clear); Tools shows error badge, warning badge, or **clear** label.
+- Home page (`app/page.tsx`) — when `crossOriginCount > 0`, **Tools → CORS** (§3.3) appears with an error badge, warning badge, or **clear** label. The **insight-strip CORS chip** (§3.2) appears only when there are errors or warnings (`shouldShowCorsInsight`).
 - Per-file page (`app/file/[index]/page.tsx`) — when the file has at least one cross-origin request, a **CORS →** link appears next to the file index, deep-linking to `/cors?file={index}`.
 - Outbound to `/entry/[file]/[index]` — the issues table URL cell wraps in a `<Link>` (with `stopPropagation` so it doesn't toggle the row's expand), the handshake panel renders an **Open entry detail →** affordance above the request / response grid, and each preflight-pairs `PairRowLine` URL becomes a link (OPTIONS row always, Actual row only when `pair.actual !== null`). All three resolve via `CorsEntry.fileIndex` + `CorsEntry.entryIndex` already carried on the audit data.
 

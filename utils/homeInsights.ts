@@ -68,6 +68,14 @@ export function corsInsightTone(cors: {
   return "clear";
 }
 
+/** Insight strip only surfaces CORS when the audit needs attention; Tools covers clean. */
+export function shouldShowCorsInsight(cors: {
+  errorCount: number;
+  warningCount: number;
+}): boolean {
+  return corsInsightTone(cors) !== "clear";
+}
+
 export function corsInsightTitle(cors: {
   crossOriginCount: number;
   errorCount: number;

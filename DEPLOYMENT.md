@@ -220,7 +220,7 @@ After Docker or VM deploy, confirm the **0.2.0** UI and assets load correctly:
 | ----- | -------------- |
 | Home `/` | Upload zone; dismissible **HARs can contain credentials** banner on first visit; **Redact credentials before saving** checkbox (off by default; omits response bodies from IndexedDB when enabled) |
 | Upload | Progress line shows file name while parsing; data persists across refresh (IndexedDB v2) |
-| Insight strip | Request/error/size totals; **Tools** row (CORS, MIME mismatch, Cache validator, Anomalies badges); comparison table behind **Full metrics table** |
+| Insight strip | Request/error/size totals; CORS chip only when audit has errors/warnings (clean CORS via Tools **clear**); **Tools** row (CORS, MIME mismatch, Cache validator, Anomalies badges); comparison table behind **Full metrics table** |
 | CORS `/cors` | Page title **CORS** (not "CORS Audit"); when cross-origin traffic exists but audit is clean, **CORS requests** table lists entries (not an empty dead-end). Uses `Sec-Fetch-Mode` to avoid false ACAO errors on `no-cors` / navigations; credentialed = Cookie only |
 | Entry diff `/entry-diff` | Search a pathname; **Selected path** banner; unified entry table. **Headers | Content** tabs with status chips. Headers: 2×2 section cards. Content: body diff or **no body** / **binary** badges. Bodies load only on Content tab. No duplicate-key console errors |
 | Legacy redirects | `/content-diff` → `?section=content`; `/header-diff` → `?section=headers` |

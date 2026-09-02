@@ -6,6 +6,7 @@ import {
   corsInsightSubtitle,
   corsInsightTitle,
   corsInsightTone,
+  shouldShowCorsInsight,
 } from "@/utils/homeInsights";
 
 function formatCount(n: number): string {
@@ -116,7 +117,9 @@ export function InsightStrip({ insights }: InsightStripProps) {
         </div>
       )}
 
-      {insights.cors && <CorsInsightCard cors={insights.cors} />}
+      {insights.cors && shouldShowCorsInsight(insights.cors) && (
+        <CorsInsightCard cors={insights.cors} />
+      )}
 
       {insights.mimeMismatch &&
         insights.mimeMismatch.mismatchCount > 0 && (

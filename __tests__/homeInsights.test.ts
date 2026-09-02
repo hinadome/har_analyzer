@@ -4,6 +4,7 @@ import {
   corsInsightSubtitle,
   corsInsightTitle,
   corsInsightTone,
+  shouldShowCorsInsight,
   errorCountFromStatusMap,
   fileInsight,
 } from "@/utils/homeInsights";
@@ -157,6 +158,18 @@ describe("corsInsightTitle / tone", () => {
         warningCount: 0,
       }),
     ).toMatch(/Browse/i);
+  });
+
+  it("shows insight strip only when audit has errors or warnings", () => {
+    expect(
+      shouldShowCorsInsight({ errorCount: 1, warningCount: 0 }),
+    ).toBe(true);
+    expect(
+      shouldShowCorsInsight({ errorCount: 0, warningCount: 2 }),
+    ).toBe(true);
+    expect(
+      shouldShowCorsInsight({ errorCount: 0, warningCount: 0 }),
+    ).toBe(false);
   });
 });
 

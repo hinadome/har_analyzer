@@ -29,7 +29,7 @@ Major UI refresh and internal refactor. Analysis engines are unchanged; pages ar
 
 - **Home Tools** and **`/compare`** — single **Entry diff** link to `/entry-diff` (replaces separate Content diff / Header diff links).
 - **`/content-diff`** and **`/header-diff`** — one-shot client replace to `/entry-diff` with `?section=` (server `redirect()` plus a tab-sync `router.replace` loop froze the app).
-- **Home CORS chip copy** — severity-aware: red **CORS audit — N errors**, amber **CORS — N warnings**, neutral **N cross-origin requests — all clear** (no longer amber-alert when clean). Tools link shows error/warning badges or a **clear** label.
+- **Home CORS chip copy** — severity-aware: red **CORS audit — N errors**, amber **CORS — N warnings**. The insight-strip CORS card is **omitted when the audit is clean** (Tools still shows **CORS · clear** when `crossOriginCount > 0`). Tools link shows error/warning badges or a **clear** label.
 - **`/cors` page title** — renamed from "CORS Audit" to **CORS**; subtitle describes audit + inventory. Clean-state findings panel points users to the request inventory below (or above when promoted).
 - **`FileUpload`** — accepts optional `progressMessage` while parsing.
 - **`app/details/page.tsx`** — search filter extracted to `utils/entrySearch.ts` (`filterEntriesBySearch`).
