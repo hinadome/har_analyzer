@@ -10,7 +10,7 @@ Run locally or in CI before shipping:
 
 ```bash
 npm ci
-npm test          # Vitest suite (324+ tests)
+npm test          # Vitest suite (334+ tests)
 npm run build     # must succeed with output: 'standalone'
 ```
 
@@ -18,7 +18,7 @@ Manual smoke after deploy (see [Post-deploy verification](#post-deploy-verificat
 
 1. Open `/` — privacy banner (first visit), upload zone, optional redaction toggle
 2. Upload a sample HAR — insight strip, Tools row, primary CTA
-3. If the capture has cross-origin traffic — `/cors` shows KPIs + **CORS requests** inventory even when findings are zero
+3. If the capture has cross-origin traffic — `/cors` shows KPIs + **CORS requests** inventory even when findings are zero. Confirm `Sec-Fetch-Mode: no-cors` rows are not flagged as ACAO errors; Cookie-less Bearer APIs should not show credentials-flag findings.
 4. Open `/entry-diff` — search a pathname (e.g. `/hello`); confirm **Selected path** and multi-host entries. Pick baseline + compare; switch **Headers | Content** tabs (status chips on each tab)
 5. **Headers** tab — four section cards in a 2×2 grid; **Content** tab — body diff or **no body** / **binary** badges; no duplicate-key console errors
 6. Legacy `/content-diff` and `/header-diff` redirect with `?section=` preserved
@@ -221,7 +221,7 @@ After Docker or VM deploy, confirm the **0.2.0** UI and assets load correctly:
 | Home `/` | Upload zone; dismissible **HARs can contain credentials** banner on first visit; **Redact credentials before saving** checkbox (off by default; omits response bodies from IndexedDB when enabled) |
 | Upload | Progress line shows file name while parsing; data persists across refresh (IndexedDB v2) |
 | Insight strip | Request/error/size totals; **Tools** row (CORS, MIME mismatch, Cache validator, Anomalies badges); comparison table behind **Full metrics table** |
-| CORS `/cors` | Page title **CORS** (not "CORS Audit"); when cross-origin traffic exists but audit is clean, **CORS requests** table lists entries (not an empty dead-end) |
+| CORS `/cors` | Page title **CORS** (not "CORS Audit"); when cross-origin traffic exists but audit is clean, **CORS requests** table lists entries (not an empty dead-end). Uses `Sec-Fetch-Mode` to avoid false ACAO errors on `no-cors` / navigations; credentialed = Cookie only |
 | Entry diff `/entry-diff` | Search a pathname; **Selected path** banner; unified entry table. **Headers | Content** tabs with status chips. Headers: 2×2 section cards. Content: body diff or **no body** / **binary** badges. Bodies load only on Content tab. No duplicate-key console errors |
 | Legacy redirects | `/content-diff` → `?section=content`; `/header-diff` → `?section=headers` |
 | MIME mismatch `/mime-mismatch` | Mismatch table (effective Content-Type); insight strip card when mismatches exist; **Show unverified extensions** off by default; Tools badge count |

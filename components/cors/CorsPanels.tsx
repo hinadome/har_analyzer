@@ -557,14 +557,22 @@ function IssueRowView({
 function HandshakePanel({ entry }: { entry: CorsEntry }) {
   const ent = entry.entry;
   // Filter request headers shown: only ACR* are preflight-specific; Origin
-  // applies to all CORS requests. We always display Origin first.
+  // Origin always; Sec-Fetch-* when present help explain CORS-mode gating.
+  // Preflights also show ACR* headers.
   const reqHeaderNames = entry.isPreflight
     ? CORS_REQUEST_HEADERS
-    : (["Origin"] as const);
-  const reqRows = reqHeaderNames.map((name) => ({
-    name,
-    value: getHeader(ent.requestHeaders, name),
-  }));
+    : (["Origin", "Sec-Fetch-Mode", "Sec-Fetch-Site"] as const);
+  const reqRows = reqHeaderNames
+    .map((name) => ({
+      name,
+      value: getHeader(ent.requestHeaders, name),
+    }))
+    .filter(
+      (row) =>
+        row.name === "Origin" ||
+        row.value !== undefined ||
+        entry.isPreflight,
+    );
   const resRows = CORS_RESPONSE_HEADERS.map((name) => ({
     name,
     value: getHeader(ent.responseHeaders, name),
@@ -589,7 +597,7 @@ function HandshakePanel({ entry }: { entry: CorsEntry }) {
           extra={
             !entry.isPreflight && entry.credentialed ? (
               <div className="text-xs text-amber-700 dark:text-amber-300 mt-2">
-                Credentialed — request carries Cookie / Authorization
+                Credentialed — request carries Cookie (credentials mode)
               </div>
             ) : null
           }

@@ -22,7 +22,7 @@ Major UI refresh and internal refactor. Analysis engines are unchanged; pages ar
 - **Content-Type resolution** — HAR `content.mimeType` and `Content-Type` header stored separately; effective type uses header when HAR MIME is junk (`x-unknown`, etc.). Entry summary shows both when they disagree; list tables show **from header** / **≠ HAR** chip. Content Types counts use effective type; legacy entries backfill from response headers on load.
 - **Extracted route panels** — large JSX moved out of god pages into `components/compare/`, `components/content-diff/`, `components/cors/`, `components/kv-search/`, `components/performance/`, and `components/performance-diff/`.
 - **`npm test`** script — runs `vitest run`.
-- **Test hardening** — preservation/bug tests import real `ComparisonTableCell` and `filterEntriesBySearch`; RTL smokes for home, shell, kv-search, cors, perf-diff, content-diff, mime-mismatch, cache-validator, and anomalies landmarks; `HeaderDiffView` layout tests; `fixture-audits.har` integration in `__tests__/fixtureAudits.test.ts`. 324+ tests at time of release.
+- **Test hardening** — preservation/bug tests import real `ComparisonTableCell` and `filterEntriesBySearch`; RTL smokes for home, shell, kv-search, cors, perf-diff, content-diff, mime-mismatch, cache-validator, and anomalies landmarks; `HeaderDiffView` layout tests; `fixture-audits.har` integration in `__tests__/fixtureAudits.test.ts`. 334+ tests at time of release.
 - **`sample-hars/fixture-audits.har`** — single-file fixture with intentional MIME, cache-validator, anomalies, and Content-Type triggers; `sample-hars/README.md` catalog; regenerate via `node scripts/generate-fixture-audits.mjs`.
 
 ### Changed
@@ -51,6 +51,10 @@ Major UI refresh and internal refactor. Analysis engines are unchanged; pages ar
 - **`?expand=` cap** — `parseExpandParam()` in `utils/queryParams.ts` ignores values over 512 characters on `/cors`, `/kv-search`, `/mime-mismatch`, `/cache-validator`, and `/anomalies/[category]`.
 - **kv-search regex budget** — regex mode enforces a 50 ms per-haystack / 1000-match cap; timeout surfaces as an inline error instead of freezing the tab (`utils/kvSearch.ts`).
 - **Safe external links** — `/compare` renders the captured URL as a clickable link only for `http:` / `https:` (`utils/safeUrl.ts`); `javascript:` / `data:` URLs display as plain text.
+
+### Changed (CORS detection)
+
+- **CORS false-positive reduction** — `Sec-Fetch-Mode` gates findings: `no-cors` / `navigate` / etc. skip ACAO checks; missing ACAO without `cors` mode is **info**, not error. **Credentialed** = Cookie only (`Authorization` alone no longer triggers credentials / wildcard-* errors). `ACAO: *` + `ACAC: true` flagged even without cookies. Preflight↔actual pairing ignores trailing slash. Handshake panel shows `Sec-Fetch-Mode` / `Sec-Fetch-Site`.
 
 ### Internal (no intentional behavior change)
 

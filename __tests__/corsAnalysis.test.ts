@@ -12,7 +12,8 @@ import {
   isCrossOrigin,
   isPreflight,
   isCredentialed,
-  pairPreflights,
+  getSecFetchMode,
+  pairUrlKey,
   analyzeStore,
   corsEntryId,
   PREFLIGHT_SLOW_MS,
@@ -164,11 +165,11 @@ describe("isCredentialed", () => {
     });
     expect(isCredentialed(e)).toBe(true);
   });
-  it("true when Authorization present", () => {
+  it("false when only Authorization present (not credentials mode)", () => {
     const e = makeEntry({
       requestHeaders: [h("Origin", APP_ORIGIN), h("authorization", "Bearer x")],
     });
-    expect(isCredentialed(e)).toBe(true);
+    expect(isCredentialed(e)).toBe(false);
   });
   it("false otherwise", () => {
     expect(isCredentialed(makeEntry())).toBe(false);
@@ -232,6 +233,46 @@ describe("pairPreflights", () => {
     const r = analyzeStore([makeAnalysis([pf1, pf2, actual])]);
     const matched = r.files[0].pairs.filter((p) => p.actual !== null);
     expect(matched).toHaveLength(1);
+  });
+
+  it("pairs URLs that differ only by trailing slash", () => {
+    const pf = makePreflight({
+      url: `${API_URL}/`,
+      startedDateTime: "2025-01-01T00:00:00.000Z",
+    });
+    const actual = makeEntry({
+      url: API_URL,
+      method: "PUT",
+      startedDateTime: "2025-01-01T00:00:00.200Z",
+    });
+    const r = analyzeStore([makeAnalysis([pf, actual])]);
+    expect(r.files[0].pairs[0].actual).not.toBeNull();
+  });
+});
+
+describe("getSecFetchMode / pairUrlKey", () => {
+  it("reads Sec-Fetch-Mode case-insensitively", () => {
+    expect(
+      getSecFetchMode(
+        makeEntry({
+          requestHeaders: [
+            h("Origin", APP_ORIGIN),
+            h("sec-fetch-mode", "CORS"),
+          ],
+        }),
+      ),
+    ).toBe("cors");
+  });
+  it("returns unknown when absent", () => {
+    expect(getSecFetchMode(makeEntry())).toBe("unknown");
+  });
+  it("normalizes trailing slash in pairUrlKey", () => {
+    expect(pairUrlKey("https://api.x.com/v1/users/")).toBe(
+      "https://api.x.com/v1/users",
+    );
+    expect(pairUrlKey("https://api.x.com/v1/users")).toBe(
+      "https://api.x.com/v1/users",
+    );
   });
 });
 
@@ -297,14 +338,48 @@ describe("finding: preflight-slow", () => {
 });
 
 describe("finding: acao-missing", () => {
-  it("triggers on cross-origin response without ACAO", () => {
+  it("is an error when Sec-Fetch-Mode is cors", () => {
+    const e = makeEntry({
+      requestHeaders: [
+        h("Origin", APP_ORIGIN),
+        h("Sec-Fetch-Mode", "cors"),
+      ],
+      responseHeaders: [],
+    });
+    const kinds = findingsFor(makeAnalysis([e]), () => true);
+    expect(kinds).toContain("acao-missing");
+    const r = analyzeStore([makeAnalysis([e])]);
+    const f = r.files[0].entries[0].findings.find(
+      (x) => x.kind === "acao-missing",
+    );
+    expect(f?.severity).toBe("error");
+  });
+  it("is info when Sec-Fetch-Mode is absent (completed response)", () => {
     const e = makeEntry({ responseHeaders: [] });
-    expect(findingsFor(makeAnalysis([e]), () => true)).toContain(
+    const r = analyzeStore([makeAnalysis([e])]);
+    const f = r.files[0].entries[0].findings.find(
+      (x) => x.kind === "acao-missing",
+    );
+    expect(f?.severity).toBe("info");
+  });
+  it("does not trigger for Sec-Fetch-Mode: no-cors", () => {
+    const e = makeEntry({
+      requestHeaders: [
+        h("Origin", APP_ORIGIN),
+        h("Sec-Fetch-Mode", "no-cors"),
+      ],
+      responseHeaders: [],
+    });
+    expect(findingsFor(makeAnalysis([e]), () => true)).not.toContain(
       "acao-missing",
     );
   });
   it("does not trigger when ACAO is present and matches", () => {
     const e = makeEntry({
+      requestHeaders: [
+        h("Origin", APP_ORIGIN),
+        h("Sec-Fetch-Mode", "cors"),
+      ],
       responseHeaders: [h("Access-Control-Allow-Origin", APP_ORIGIN)],
     });
     expect(findingsFor(makeAnalysis([e]), () => true)).not.toContain(
@@ -345,8 +420,27 @@ describe("finding: acao-mismatch", () => {
 describe("finding: acao-wildcard-with-credentials", () => {
   it("triggers when ACAO=* and request has Cookie", () => {
     const e = makeEntry({
-      requestHeaders: [h("Origin", APP_ORIGIN), h("Cookie", "sid=abc")],
+      requestHeaders: [
+        h("Origin", APP_ORIGIN),
+        h("Sec-Fetch-Mode", "cors"),
+        h("Cookie", "sid=abc"),
+      ],
       responseHeaders: [h("Access-Control-Allow-Origin", "*")],
+    });
+    expect(findingsFor(makeAnalysis([e]), () => true)).toContain(
+      "acao-wildcard-with-credentials",
+    );
+  });
+  it("triggers when ACAO=* and ACAC:true even without Cookie", () => {
+    const e = makeEntry({
+      requestHeaders: [
+        h("Origin", APP_ORIGIN),
+        h("Sec-Fetch-Mode", "cors"),
+      ],
+      responseHeaders: [
+        h("Access-Control-Allow-Origin", "*"),
+        h("Access-Control-Allow-Credentials", "true"),
+      ],
     });
     expect(findingsFor(makeAnalysis([e]), () => true)).toContain(
       "acao-wildcard-with-credentials",
@@ -354,6 +448,23 @@ describe("finding: acao-wildcard-with-credentials", () => {
   });
   it("does not trigger when ACAO=* without credentials", () => {
     const e = makeEntry({
+      requestHeaders: [
+        h("Origin", APP_ORIGIN),
+        h("Sec-Fetch-Mode", "cors"),
+      ],
+      responseHeaders: [h("Access-Control-Allow-Origin", "*")],
+    });
+    expect(findingsFor(makeAnalysis([e]), () => true)).not.toContain(
+      "acao-wildcard-with-credentials",
+    );
+  });
+  it("does not treat Authorization alone as credentials", () => {
+    const e = makeEntry({
+      requestHeaders: [
+        h("Origin", APP_ORIGIN),
+        h("Sec-Fetch-Mode", "cors"),
+        h("Authorization", "Bearer tok"),
+      ],
       responseHeaders: [h("Access-Control-Allow-Origin", "*")],
     });
     expect(findingsFor(makeAnalysis([e]), () => true)).not.toContain(
@@ -443,7 +554,11 @@ describe("finding: header-not-allowed", () => {
 describe("finding: credentials-flag-missing", () => {
   it("triggers when actual request has Cookie but ACAC missing", () => {
     const e = makeEntry({
-      requestHeaders: [h("Origin", APP_ORIGIN), h("Cookie", "sid=abc")],
+      requestHeaders: [
+        h("Origin", APP_ORIGIN),
+        h("Sec-Fetch-Mode", "cors"),
+        h("Cookie", "sid=abc"),
+      ],
       responseHeaders: [h("Access-Control-Allow-Origin", APP_ORIGIN)],
     });
     expect(findingsFor(makeAnalysis([e]), () => true)).toContain(
@@ -452,11 +567,28 @@ describe("finding: credentials-flag-missing", () => {
   });
   it("does not trigger when ACAC: true is present", () => {
     const e = makeEntry({
-      requestHeaders: [h("Origin", APP_ORIGIN), h("Cookie", "sid=abc")],
+      requestHeaders: [
+        h("Origin", APP_ORIGIN),
+        h("Sec-Fetch-Mode", "cors"),
+        h("Cookie", "sid=abc"),
+      ],
       responseHeaders: [
         h("Access-Control-Allow-Origin", APP_ORIGIN),
         h("Access-Control-Allow-Credentials", "true"),
       ],
+    });
+    expect(findingsFor(makeAnalysis([e]), () => true)).not.toContain(
+      "credentials-flag-missing",
+    );
+  });
+  it("does not trigger for Authorization-only requests", () => {
+    const e = makeEntry({
+      requestHeaders: [
+        h("Origin", APP_ORIGIN),
+        h("Sec-Fetch-Mode", "cors"),
+        h("Authorization", "Bearer tok"),
+      ],
+      responseHeaders: [h("Access-Control-Allow-Origin", APP_ORIGIN)],
     });
     expect(findingsFor(makeAnalysis([e]), () => true)).not.toContain(
       "credentials-flag-missing",
@@ -520,14 +652,31 @@ describe("analyzeStore", () => {
   });
 
   it("aggregates counts across files", () => {
-    const bad = makeEntry({ responseHeaders: [] });
+    const bad = makeEntry({
+      requestHeaders: [
+        h("Origin", APP_ORIGIN),
+        h("Sec-Fetch-Mode", "cors"),
+      ],
+      responseHeaders: [],
+    });
     const good = makeEntry({
+      requestHeaders: [
+        h("Origin", APP_ORIGIN),
+        h("Sec-Fetch-Mode", "cors"),
+      ],
       responseHeaders: [h("Access-Control-Allow-Origin", APP_ORIGIN)],
     });
     const r = analyzeStore([makeAnalysis([bad]), makeAnalysis([good])]);
     expect(r.crossOriginCount).toBe(2);
     expect(r.errorCount).toBeGreaterThanOrEqual(1);
     expect(r.files).toHaveLength(2);
+  });
+
+  it("counts advisory acao-missing as info when Sec-Fetch-Mode is absent", () => {
+    const soft = makeEntry({ responseHeaders: [] });
+    const r = analyzeStore([makeAnalysis([soft])]);
+    expect(r.errorCount).toBe(0);
+    expect(r.infoCount).toBeGreaterThanOrEqual(1);
   });
 
   it("counts failed preflights separately", () => {

@@ -83,6 +83,8 @@ export const CORS_REQUEST_HEADERS = [
   "Origin",
   "Access-Control-Request-Method",
   "Access-Control-Request-Headers",
+  "Sec-Fetch-Mode",
+  "Sec-Fetch-Site",
 ] as const;
 
 export const CORS_RESPONSE_HEADERS = [
@@ -171,11 +173,82 @@ export function isPreflight(entry: EntryRecord): boolean {
   );
 }
 
-/** Actual (non-preflight) requests are credentialed if they carry Cookie/Authorization. */
+/**
+ * Fetch "credentials mode" proxy for HAR analysis.
+ *
+ * Only **Cookie** (and non-empty `requestCookies`) count. An `Authorization`
+ * header alone is a non-simple header (triggers preflight) but is **not**
+ * credentials mode — `Access-Control-Allow-Credentials` is not required for
+ * Bearer-token APIs that use `credentials: 'omit'`. Treating Authorization as
+ * credentialed produced many false CORS errors.
+ */
 export function isCredentialed(entry: EntryRecord): boolean {
   const cookie = getHeader(entry.requestHeaders, "Cookie");
-  const auth = getHeader(entry.requestHeaders, "Authorization");
-  return Boolean(cookie || auth);
+  if (cookie && cookie.trim().length > 0) return true;
+  return entry.requestCookies.some((c) => c.name.length > 0);
+}
+
+/**
+ * Browser `Sec-Fetch-Mode` when present (Chrome / Firefox / Edge HARs).
+ * Used to distinguish CORS-mode fetches (ACAO required) from `no-cors` /
+ * navigations that never surface a CORS console error.
+ */
+export type SecFetchMode =
+  | "cors"
+  | "no-cors"
+  | "navigate"
+  | "same-origin"
+  | "websocket"
+  | "unknown";
+
+export function getSecFetchMode(entry: EntryRecord): SecFetchMode {
+  const raw = (
+    getHeader(entry.requestHeaders, "Sec-Fetch-Mode") ?? ""
+  )
+    .trim()
+    .toLowerCase();
+  if (
+    raw === "cors" ||
+    raw === "no-cors" ||
+    raw === "navigate" ||
+    raw === "same-origin" ||
+    raw === "websocket"
+  ) {
+    return raw;
+  }
+  return "unknown";
+}
+
+/**
+ * Whether the browser would enforce CORS response headers for this request.
+ * Preflights always count. `Sec-Fetch-Mode: cors` counts. Passive modes
+ * (`no-cors`, `navigate`, …) do not. When the header is absent (older HARs),
+ * we still audit but soften some findings (see `checkAcao`).
+ */
+export function isCorsEnforcedRequest(entry: EntryRecord): boolean {
+  if (isPreflight(entry)) return true;
+  const mode = getSecFetchMode(entry);
+  if (mode === "cors") return true;
+  if (
+    mode === "no-cors" ||
+    mode === "navigate" ||
+    mode === "same-origin" ||
+    mode === "websocket"
+  ) {
+    return false;
+  }
+  return true; // unknown — still examine headers
+}
+
+/** True when Sec-Fetch-Mode proves the request is outside CORS enforcement. */
+export function isNonCorsFetchMode(entry: EntryRecord): boolean {
+  const mode = getSecFetchMode(entry);
+  return (
+    mode === "no-cors" ||
+    mode === "navigate" ||
+    mode === "same-origin" ||
+    mode === "websocket"
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -185,6 +258,18 @@ export function isCredentialed(entry: EntryRecord): boolean {
 function entryStartMs(e: EntryRecord): number {
   const t = Date.parse(e.startedDateTime);
   return Number.isFinite(t) ? t : 0;
+}
+
+/** Normalize URL for preflight↔actual pairing (ignore fragment, trailing slash). */
+export function pairUrlKey(url: string): string {
+  try {
+    const u = new URL(url);
+    let path = u.pathname;
+    if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
+    return `${u.origin}${path}${u.search}`;
+  } catch {
+    return url;
+  }
 }
 
 /**
@@ -204,12 +289,13 @@ export function pairPreflights(corsEntries: CorsEntry[]): CorsPair[] {
       getHeader(p.entry.requestHeaders, "Access-Control-Request-Method") ?? ""
     ).toUpperCase();
     const pStart = entryStartMs(p.entry);
+    const pKey = pairUrlKey(p.entry.url);
     let bestIdx = -1;
     let bestDelta = Infinity;
     for (let i = 0; i < actuals.length; i++) {
       const a = actuals[i];
       if (a.used) continue;
-      if (a.c.entry.url !== p.entry.url) continue;
+      if (pairUrlKey(a.c.entry.url) !== pKey) continue;
       if (a.c.entry.method.toUpperCase() !== acrm) continue;
       const aStart = entryStartMs(a.c.entry);
       const delta = aStart - pStart;
@@ -243,7 +329,7 @@ function checkPreflight(entry: EntryRecord): CorsFinding[] {
       severity: "error",
       message:
         status === 0
-          ? "Preflight failed — request never completed (status 0)"
+          ? "Preflight never completed (status 0) — network error, cancel, or blocked before a response"
           : `Preflight failed — server returned ${status}`,
       detail: { received: String(status) },
     });
@@ -259,30 +345,55 @@ function checkPreflight(entry: EntryRecord): CorsFinding[] {
   return findings;
 }
 
+/**
+ * ACAO checks.
+ *
+ * @param options.corsMode — when false (`no-cors` / navigate), skip entirely.
+ * @param options.strictMissing — when true (`Sec-Fetch-Mode: cors` or preflight),
+ *   missing ACAO is an **error**. When false (unknown mode on a completed
+ *   response), missing ACAO is **info** — often opaque / non-JS traffic that
+ *   never prints a browser CORS error.
+ * @param options.acacTrue — `Access-Control-Allow-Credentials: true` makes
+ *   `ACAO: *` invalid even without cookies (Fetch CORS rule).
+ */
 function checkAcao(
   requestOrigin: string,
   acao: string | undefined,
   credentialed: boolean,
+  options: {
+    corsMode: boolean;
+    strictMissing: boolean;
+    acacTrue: boolean;
+  },
 ): CorsFinding[] {
+  if (!options.corsMode) return [];
+
   const findings: CorsFinding[] = [];
   if (!acao) {
     findings.push({
       kind: "acao-missing",
-      severity: "error",
-      message: "Response is missing Access-Control-Allow-Origin",
+      severity: options.strictMissing ? "error" : "info",
+      message: options.strictMissing
+        ? "Response is missing Access-Control-Allow-Origin (required for CORS-mode requests)"
+        : "Response has no Access-Control-Allow-Origin — may be opaque / non-CORS traffic (no Sec-Fetch-Mode: cors)",
       detail: { sent: requestOrigin, expected: requestOrigin || "*" },
     });
     return findings;
   }
   const value = acao.trim();
   if (value === "*") {
-    if (credentialed) {
+    if (credentialed || options.acacTrue) {
       findings.push({
         kind: "acao-wildcard-with-credentials",
         severity: "error",
-        message:
-          "Access-Control-Allow-Origin: * is invalid for credentialed requests",
-        detail: { sent: requestOrigin, received: "*" },
+        message: options.acacTrue && !credentialed
+          ? "Access-Control-Allow-Origin: * cannot be combined with Access-Control-Allow-Credentials: true"
+          : "Access-Control-Allow-Origin: * is invalid for credentialed (Cookie) requests",
+        detail: {
+          sent: requestOrigin,
+          received: "*",
+          expected: requestOrigin || "(echoed Origin)",
+        },
       });
     }
     return findings;
@@ -352,7 +463,7 @@ function checkCredentialsFlag(
     kind: "credentials-flag-missing",
     severity: "error",
     message:
-      "Credentialed request needs Access-Control-Allow-Credentials: true",
+      "Cookie-bearing request needs Access-Control-Allow-Credentials: true",
     detail: { expected: "true", received: acac ?? "(not set)" },
   };
 }
@@ -406,13 +517,21 @@ export function analyzeEntry(
   const acam = getHeader(resHeaders, "Access-Control-Allow-Methods");
   const acah = getHeader(resHeaders, "Access-Control-Allow-Headers");
   const acac = getHeader(resHeaders, "Access-Control-Allow-Credentials");
+  const acacTrue = (acac ?? "").trim().toLowerCase() === "true";
+  const fetchMode = getSecFetchMode(ce.entry);
 
   if (ce.isPreflight) {
     findings.push(...checkPreflight(ce.entry));
     // ACAO check uses paired actual's credentialed flag if available,
     // because preflights themselves don't carry cookies.
     const credentialed = paired?.credentialed ?? false;
-    findings.push(...checkAcao(ce.requestOrigin, acao, credentialed));
+    findings.push(
+      ...checkAcao(ce.requestOrigin, acao, credentialed, {
+        corsMode: true,
+        strictMissing: true,
+        acacTrue,
+      }),
+    );
     const acrm = getHeader(reqHeaders, "Access-Control-Request-Method");
     if (acrm) {
       const m = checkAllowedMethod(acrm, acam);
@@ -426,9 +545,43 @@ export function analyzeEntry(
       if (c) findings.push(c);
     }
   } else {
-    findings.push(...checkAcao(ce.requestOrigin, acao, ce.credentialed));
+    // Passive / non-CORS fetch modes never produce browser CORS errors.
+    if (isNonCorsFetchMode(ce.entry)) {
+      return findings;
+    }
+
+    const strictMissing =
+      fetchMode === "cors" || ce.entry.status === 0;
+    findings.push(
+      ...checkAcao(ce.requestOrigin, acao, ce.credentialed, {
+        corsMode: true,
+        strictMissing,
+        acacTrue,
+      }),
+    );
     const c = checkCredentialsFlag(ce.credentialed, acac);
     if (c) findings.push(c);
+
+    // Spec-aligned: status 0 / hard fail with no CORS headers looks blocked.
+    if (
+      (ce.entry.status === 0 || ce.entry.status >= 400) &&
+      !acao &&
+      fetchMode === "cors"
+    ) {
+      const already = findings.some((f) => f.kind === "actual-request-blocked");
+      if (!already) {
+        findings.push({
+          kind: "actual-request-blocked",
+          severity: "warning",
+          message:
+            ce.entry.status === 0
+              ? "CORS-mode request failed (status 0) with no Access-Control-Allow-Origin"
+              : `CORS-mode request returned ${ce.entry.status} with no Access-Control-Allow-Origin`,
+          detail: { received: String(ce.entry.status) },
+        });
+      }
+    }
+
     if (paired && paired.isPreflight) {
       const preflightFailed = paired.findings.some(
         (f) => f.kind === "preflight-failed",

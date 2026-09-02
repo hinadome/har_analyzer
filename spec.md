@@ -529,21 +529,25 @@ Cross-Origin Resource Sharing **audit and inventory** backed by the pure analyze
 
 **Detection model:**
 
-A request is **cross-origin** when its `Origin` request header is present and that origin differs from the request URL's origin (`null`-origin requests are also treated as cross-origin). A **preflight** is an `OPTIONS` request that carries `Access-Control-Request-Method`. Each preflight is paired with the matching actual request by `(URL, ACRM-method)` within `PREFLIGHT_PAIR_WINDOW_MS = 5000`; an actual request is consumed by at most one preflight.
+A request is **cross-origin** when its `Origin` request header is present and that origin differs from the request URL's origin (`null`-origin requests are also treated as cross-origin). A **preflight** is an `OPTIONS` request that carries `Access-Control-Request-Method`. Each preflight is paired with the matching actual request by `(normalized URL, ACRM-method)` within `PREFLIGHT_PAIR_WINDOW_MS = 5000` (trailing slash / fragment ignored via `pairUrlKey`); an actual request is consumed by at most one preflight.
+
+**Fetch-mode gating (`Sec-Fetch-Mode`):** modern browser HARs include this header. `cors` → full CORS enforcement (missing ACAO is an **error**). `no-cors` / `navigate` / `same-origin` / `websocket` → **no** ACAO / credentials findings (these modes do not print CORS console errors). When the header is **absent** (older HARs), missing ACAO on a completed response is **info** (advisory), not error; status `0` still escalates to error.
+
+**Credentialed** means the request carries a **Cookie** header (or parsed `requestCookies`). `Authorization` alone is **not** credentials mode — it triggers a preflight as a non-simple header but does not require `Access-Control-Allow-Credentials`.
 
 **Finding kinds** (`utils/corsAnalysis.ts` → `CorsFindingKind`):
 
 | Kind                             | Severity | Trigger                                                                                                                        |
 | -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `preflight-failed`               | error    | OPTIONS preflight returned `0` (failed) or `>= 400`                                                                            |
+| `preflight-failed`               | error    | OPTIONS preflight returned `0` (failed / cancelled / blocked) or `>= 400`                                                      |
 | `preflight-slow`                 | warning  | OPTIONS preflight `entry.time > PREFLIGHT_SLOW_MS` (1000 ms)                                                                   |
-| `acao-missing`                   | error    | Cross-origin response has no `Access-Control-Allow-Origin` header                                                              |
-| `acao-mismatch`                  | error    | `ACAO` is neither `*` nor an exact match of the request `Origin`                                                               |
-| `acao-wildcard-with-credentials` | error    | `ACAO: *` paired with a credentialed (Cookie / Authorization) actual request, or with `Access-Control-Allow-Credentials: true` |
+| `acao-missing`                   | error / info | No `Access-Control-Allow-Origin`: **error** when `Sec-Fetch-Mode: cors`, preflight, or status `0`; **info** when mode unknown on a completed response |
+| `acao-mismatch`                  | error    | `ACAO` is neither `*` nor an exact match of the request `Origin` (skipped for non-CORS fetch modes)                            |
+| `acao-wildcard-with-credentials` | error    | `ACAO: *` with a Cookie-bearing request, **or** with `Access-Control-Allow-Credentials: true`                                  |
 | `method-not-allowed`             | error    | Preflight's `Access-Control-Request-Method` is not in the response's `Access-Control-Allow-Methods`                            |
 | `header-not-allowed`             | error    | Any token in `Access-Control-Request-Headers` is missing from `Access-Control-Allow-Headers` (wildcard `*` accepted)           |
-| `credentials-flag-missing`       | error    | Credentialed actual request whose response lacks `Access-Control-Allow-Credentials: true`                                      |
-| `actual-request-blocked`         | error    | Cross-origin actual request returned `0` or `>= 400` and the response carries no CORS headers                                  |
+| `credentials-flag-missing`       | error    | Cookie-bearing actual request whose response lacks `Access-Control-Allow-Credentials: true`                                    |
+| `actual-request-blocked`         | warning  | Actual follows a failed preflight, **or** CORS-mode actual returned `0`/`>= 400` with no ACAO                                  |
 
 Findings carry an optional `detail: { sent?, expected?, received? }` triplet that the handshake panel renders as inline cards.
 
@@ -556,7 +560,7 @@ Findings carry an optional `detail: { sent?, expected?, received? }` triplet tha
 | KPI summary          | Four cards: **Total findings** (with `error / warning / info` sub-line), **Failed preflights** (`failedPreflightCount` / total preflights), **Slow preflights** (count of `preflight-slow` findings, `> 1000 ms`), **Cross-origin requests** (non-preflight cross-origin entries with the `Origin` header).                                                                                                                      |
 | Issues table         | Flat one-row-per-finding table (sorted error → warning → info). Columns: Severity · Kind · File (in `all` scope) · Status · Method (with `PF` chip on preflights) · URL · Time · Detail. Rows are click-to-expand and toggle `?expand=<entryId>`. When no rows match filters, shows **No CORS issues detected** (green) with filter-aware copy.                                                                                  |
 | CORS requests table  | Paginated (50 rows/page) inventory of **every** cross-origin and preflight `CorsEntry` in scope (respects Origin filter). Columns: Type (Actual / Preflight) · File (in `all` scope) · Status · Method · Request Origin · ACAO · URL · Time · Findings (None / error+warning counts). Rows expand to the same handshake panel as the issues table. **When total findings in scope are zero, this table is listed above the issues empty state** so clean captures still show browsable traffic. |
-| Handshake panel      | Inline expansion of the clicked row. Two cards on a 2-column grid: **Request** (Origin only on regular CORS entries; Origin + ACR-Method + ACR-Headers on preflights, plus a "credentialed" badge when the actual request carries `Cookie` / `Authorization`) and **Response** (six ACA-\* headers). Below: the per-entry findings list with severity icons (`✗` / `⚠` / `•`) and the sent / expected / received detail triplet. |
+| Handshake panel      | Inline expansion of the clicked row. Two cards on a 2-column grid: **Request** (Origin + `Sec-Fetch-Mode` / `Sec-Fetch-Site` when present; Origin + ACR-Method + ACR-Headers on preflights, plus a "credentialed" badge when the actual request carries **Cookie**) and **Response** (six ACA-\* headers). Below: the per-entry findings list with severity icons (`✗` / `⚠` / `•`) and the sent / expected / received detail triplet. |
 | Preflight pairs      | Collapsible `<details>` listing every `CorsPair`. Each card shows a verdict pill (**OK** / **Warnings** / **Preflight failed** / **Actual blocked** / **No actual request**), the source-file chip, the Δ start time between OPTIONS and actual, and two `border-l-2` rows: blue for the OPTIONS request and green for the actual request (or a red "no matching actual request found within 5000 ms" hint when unpaired).       |
 
 **Discovery links:**
@@ -756,7 +760,7 @@ All routes share **`PageShell`** (`AppHeader`, back link, crumb) and common empt
 | Storage limits | IndexedDB v2: metadata hot blob + per-body cold keys; quota errors surface inline on save. Legacy v1 stores migrate on load when possible.                                    |
 | Accessibility  | Semantic HTML table elements; keyboard-navigable sort headers and pagination controls                                                                                        |
 | Responsiveness | Horizontally scrollable tables on narrow viewports; shared shell with sticky header across tool pages                                                                          |
-| Testing        | `npm test` runs Vitest unit + RTL smoke tests (324+ at v0.2.0); `fixture-audits.har` covered in `__tests__/fixtureAudits.test.ts` |
+| Testing        | `npm test` runs Vitest unit + RTL smoke tests (334+ at v0.2.0); `fixture-audits.har` covered in `__tests__/fixtureAudits.test.ts` |
 | Toolchain      | Tailwind CSS 4.3.3 via `@tailwindcss/postcss`; Node 22 LTS for production deploy (`Dockerfile`, `deploy-vm.sh`); Tailwind ≥ 4.3.1 on Node 26+ avoids `DEP0205` build deprecation noise |
 
 ---

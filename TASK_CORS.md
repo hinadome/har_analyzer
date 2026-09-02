@@ -18,25 +18,28 @@ Boxes are checked as work lands.
   is present **and** its origin differs from the request URL's origin.
   Same-origin requests are excluded from the audit entirely.
 - Preflight ↔ actual-request pairing key:
-  **`(file, URL, ACRM-method, time-window)`** with a 5-second window on
-  `startedDateTime`. URL is matched on full URL.
+  **`(file, normalized-URL, ACRM-method, time-window)`** with a 5-second window on
+  `startedDateTime`. URL match ignores trailing slash and fragment (`pairUrlKey`).
 - Preflight-slow threshold: **`time > 1000 ms`**.
+- Credentialed = **Cookie** only (not Authorization alone).
+- `Sec-Fetch-Mode` gates actual-request ACAO checks: `cors` → strict; `no-cors` /
+  `navigate` / etc. → skip; absent → missing ACAO is **info** on completed responses.
 - 9 finding kinds (severity in parentheses):
   - `preflight-failed` (error) — OPTIONS with status ∈ {0, 4xx, 5xx}.
   - `preflight-slow` (warning) — OPTIONS `time > 1000 ms`.
-  - `acao-missing` (error) — cross-origin response without ACAO.
+  - `acao-missing` (error or info) — see Sec-Fetch-Mode gating above.
   - `acao-mismatch` (error) — ACAO is a literal origin and ≠ request `Origin`.
   - `acao-wildcard-with-credentials` (error) — ACAO is `*` and request
-    carried `Cookie` or `Authorization`.
+    carried Cookie, **or** response has `ACAC: true`.
   - `method-not-allowed` (error) — preflight ACRM not in response
     `Access-Control-Allow-Methods`.
   - `header-not-allowed` (error) — any token in ACRH not covered by
     response `Access-Control-Allow-Headers` (case-insensitive,
     comma-split, with `*` wildcard support).
-  - `credentials-flag-missing` (error) — actual request was credentialed
+  - `credentials-flag-missing` (error) — Cookie-bearing actual request
     but response lacks `Access-Control-Allow-Credentials: true`.
   - `actual-request-blocked` (warning) — actual request paired with a
-    failed preflight.
+    failed preflight, or CORS-mode actual with status 0/≥400 and no ACAO.
 - URL state on `/cors`:
   `?file=all|<index>&severity=all|error|warning|info&origin=<encoded>&expand=<entryId>`.
 - Discovery links:
