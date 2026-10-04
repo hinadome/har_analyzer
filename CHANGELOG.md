@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Content Search page (`/content-search`)** — free-text search over **response bodies**, the body-content counterpart to `/kv-search` (which searches headers and cookies). Fills the gap previously called out as out-of-scope for kv-search.
+  - Pure search engine in `utils/contentSearch.ts` (`searchContent`, `buildSnippets`, `contentEntryId`). Reuses `compileMatcher` from `utils/kvSearch.ts`, so **contains / exact / regex** modes, the case-sensitive toggle, and the regex CPU budget (50 ms / 1000 matches per body, surfaced as a timeout error instead of freezing the tab) are shared. The engine runs over `{ entry, body }` records and returns per-entry match counts plus display **snippets** (a context window around each match; overlapping windows are merged, snippet count capped per entry). `ContentSearchSummary` tracks hits, total matches, files touched, bodies searched, and entries without a captured body.
+  - **On-demand body loading** — response bodies live under cold IndexedDB keys (store v2), so `app/content-search/page.tsx` only loads bodies for entries that pass the optional `URL contains` pre-filter **and** have a captured body (`hasResponseBody`). Bodies are fetched via `loadEntryBodyAsync` once a search needle is present and cached by `bodyId` across searches (no re-fetch). A "Loading bodies…" indicator shows while fetching.
+  - `/content-search` page wires the engine into a URL-driven UI mirroring kv-search: a **Body contains** needle + optional **URL contains** pre-filter (both debounced 200 ms), Mode `<select>` (contains / exact / regex), case-sensitive checkbox, and File scope `<select>` (shown when ≥ 2 files loaded). Paginated results table (50 rows per page) with File · Method · Status · URL · Matches · Timestamp (UTC) columns. Click-to-expand reveals highlighted match snippets with `… ` ellipsis cues and a byte-length note; `?expand=` deep-links and scrolls a row into view. Empty / no-match / regex-error / privacy-redacted fallback states.
+  - URL state: `?text=&url=&mode=contains|exact|regex&cs=0|1&file=all|<index>&expand=<harFileIndex>:<indexInFile>` — defaults normalised out, `?expand=` capped at 512 chars via `parseExpandParam`.
+- **Discovery link** — **Content search** pill added to the home **Tools** row (`app/page.tsx`), next to **Search headers/cookies**. Visible whenever ≥ 1 file is loaded (a tool, not a problem detector — no count badge).
+
+### Tests
+
+- Added 16 tests in `__tests__/contentSearch.test.ts` (Vitest, node env) — `searchContent` (empty needle, contains occurrence count, case sensitivity, exact-mode whole-body equality, regex match count, invalid regex error), body handling (missing-body skip + count, empty-string body not counted as missing, URL pre-filter case-insensitivity, `filesTouched` across distinct `harFileIndex`), `buildSnippets` (no ranges, snippet-local range rebasing, overlapping-window merge, distant-match separation, snippet cap), and `contentEntryId`. Full suite 351/351 across 25 files; `npm run build` green with `/content-search` prerendered as a static route.
+
 ## [0.2.0]
 
 Major UI refresh and internal refactor. Analysis engines are unchanged; pages are thinner, storage scales better, and the home + CORS flows are clearer.

@@ -10,7 +10,7 @@ Run locally or in CI before shipping:
 
 ```bash
 npm ci
-npm test          # Vitest suite (334+ tests)
+npm test          # Vitest suite (351 tests)
 npm run build     # must succeed with output: 'standalone'
 ```
 
@@ -27,7 +27,8 @@ Manual smoke after deploy (see [Post-deploy verification](#post-deploy-verificat
 9. Entry detail — when HAR `content.mimeType` is `x-unknown` but `Content-Type` header is real, summary shows split (effective type + amber HAR vs header note); Content Types counts use effective type
 10. Open `/anomalies` — hub with four category cards; Tools **Anomalies** badge; drill into `/anomalies/status`, `/size`, `/encoding`, or `/cache-policy`; expand path groups
 11. Optional: enable worker parse and upload a ≥ 5 MB HAR (see [Build-time options](#build-time-options))
-12. **Security hardening** — with redaction enabled, re-upload or remove a file and confirm response bodies are not available on entry detail; `/kv-search` regex mode shows a timeout warning on pathological patterns; `/compare` does not link `javascript:` URLs
+12. Open `/content-search` — enter a string in **Body contains**; confirm the "Loading bodies…" indicator while bodies fetch, highlighted match snippets on expand, and the "N bodies searched / M without a captured body" summary. With redaction enabled on upload, confirm there is nothing to search (bodies omitted)
+13. **Security hardening** — with redaction enabled, re-upload or remove a file and confirm response bodies are not available on entry detail; `/kv-search` and `/content-search` regex mode show a timeout warning on pathological patterns; `/compare` does not link `javascript:` URLs
 
 ---
 
@@ -228,7 +229,8 @@ After Docker or VM deploy, confirm the **0.2.0** UI and assets load correctly:
 | Cache validator `/cache-validator` | Pathname groups with ETag or Last-Modified drift; weak (**W**, dashed) vs strong (**S**) ETag chips; expandable entry list; insight strip + Tools badge; **no-validator** paths toggle |
 | Anomalies `/anomalies` | Hub + four categories (status, size, encoding, cache-policy); unique-path Tools badge; correlation strip for multi-check paths; expandable entry lists; see [thresholds table](#anomaly-detection-thresholds-client-side) |
 | Content-Type resolution | Entry detail split when HAR MIME is junk (`x-unknown`) but header is real; **from header** / **≠ HAR** chips in list tables; Content Types counts use effective type |
-| Security hardening | `?expand=` capped at 512 chars; kv-search regex timeout on pathological patterns; `/compare` external URL link only for `http:` / `https:` |
+| Content search `/content-search` | **Body contains** needle (contains / exact / regex) + optional **URL contains** pre-filter + file scope; bodies load on demand (**Loading bodies…** indicator) and are cached by `bodyId`; expand rows for highlighted match snippets; summary reports bodies searched vs. without a captured body; nothing to search when redaction omitted bodies on upload |
+| Security hardening | `?expand=` capped at 512 chars; kv-search and content-search regex timeout on pathological patterns; `/compare` external URL link only for `http:` / `https:` |
 | Static assets | No 404s for `/_next/static/chunks/*` in browser devtools (if chunks 404, the standalone static copy step was skipped or the dest path was wrong — must be `.next/standalone/.next/static/`) |
 | Worker (optional) | With worker enabled, upload a large HAR — parse completes; if worker chunk 404s, app falls back to main-thread parse (check console) |
 

@@ -297,6 +297,9 @@ export default function HomePage() {
               <Link href="/kv-search" className={toolLinkClass}>
                 Search headers/cookies
               </Link>
+              <Link href="/content-search" className={toolLinkClass}>
+                Content search
+              </Link>
               <Link href="/entry-diff" className={toolLinkClass}>
                 Entry diff
               </Link>
