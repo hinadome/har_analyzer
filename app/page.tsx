@@ -276,6 +276,15 @@ export default function HomePage() {
                   Pair diff
                 </Link>
               )}
+              <Link href="/entry-diff" className={toolLinkClass}>
+                Entry diff
+              </Link>
+              <Link href="/content-search" className={toolLinkClass}>
+                Search content
+              </Link>
+              <Link href="/kv-search" className={toolLinkClass}>
+                Search headers/cookies
+              </Link>
               {insights.cors && (
                 <Link href="/cors" className={toolLinkClass}>
                   CORS
@@ -294,15 +303,6 @@ export default function HomePage() {
                   )}
                 </Link>
               )}
-              <Link href="/kv-search" className={toolLinkClass}>
-                Search headers/cookies
-              </Link>
-              <Link href="/content-search" className={toolLinkClass}>
-                Content search
-              </Link>
-              <Link href="/entry-diff" className={toolLinkClass}>
-                Entry diff
-              </Link>
               <Link href="/mime-mismatch" className={toolLinkClass}>
                 MIME mismatch
                 {insights.mimeMismatch && insights.mimeMismatch.mismatchCount > 0 ? (

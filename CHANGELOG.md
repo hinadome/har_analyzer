@@ -9,7 +9,12 @@
   - **On-demand body loading** — response bodies live under cold IndexedDB keys (store v2), so `app/content-search/page.tsx` only loads bodies for entries that pass the optional `URL contains` pre-filter **and** have a captured body (`hasResponseBody`). Bodies are fetched via `loadEntryBodyAsync` once a search needle is present and cached by `bodyId` across searches (no re-fetch). A "Loading bodies…" indicator shows while fetching.
   - `/content-search` page wires the engine into a URL-driven UI mirroring kv-search: a **Body contains** needle + optional **URL contains** pre-filter (both debounced 200 ms), Mode `<select>` (contains / exact / regex), case-sensitive checkbox, and File scope `<select>` (shown when ≥ 2 files loaded). Paginated results table (50 rows per page) with File · Method · Status · URL · Matches · Timestamp (UTC) columns. Click-to-expand reveals highlighted match snippets with `… ` ellipsis cues and a byte-length note; `?expand=` deep-links and scrolls a row into view. Empty / no-match / regex-error / privacy-redacted fallback states.
   - URL state: `?text=&url=&mode=contains|exact|regex&cs=0|1&file=all|<index>&expand=<harFileIndex>:<indexInFile>` — defaults normalised out, `?expand=` capped at 512 chars via `parseExpandParam`.
-- **Discovery link** — **Content search** pill added to the home **Tools** row (`app/page.tsx`), next to **Search headers/cookies**. Visible whenever ≥ 1 file is loaded (a tool, not a problem detector — no count badge).
+- **Discovery link** — **Search content** pill added to the home **Tools** row (`app/page.tsx`). Visible whenever ≥ 1 file is loaded (a tool, not a problem detector — no count badge).
+
+### Changed
+
+- **Home Tools row order** — tools are now grouped as navigate → search → audit: **Performance overview · Pair diff · Entry diff · Search content · Search headers/cookies · CORS · MIME mismatch · Cache validator · Anomalies** (previously CORS and the search tools sat between Pair diff and Entry diff). Conditional visibility is unchanged — Pair diff still requires ≥ 2 files and CORS still requires cross-origin traffic. `README.md` usage step 3 and `spec.md` §3.3 synced to the new order (§3.3 also gains the previously missing **Search content** row).
+- **Tools label** — the response-body search pill reads **Search content** (was "Content search"), aligning with the neighbouring **Search headers/cookies** verb-first phrasing. Route (`/content-search`) and page title ("Content Search") unchanged.
 
 ### Tests
 

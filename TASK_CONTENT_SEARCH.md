@@ -93,6 +93,13 @@ Boxes are checked as work lands.
 - [x] **Phase 3 — Navigation link**
   - [x] Add **Content search** pill to the home `Tools` row in
         `app/page.tsx`, after **Search headers/cookies**.
+  - [x] **Follow-up (post-merge)** — pill relabelled **Search content**
+        (verb-first, matching **Search headers/cookies**) and the Tools
+        row reordered to: Performance overview · Pair diff · Entry diff ·
+        Search content · Search headers/cookies · CORS · MIME mismatch ·
+        Cache validator · Anomalies. Route (`/content-search`) and page
+        title ("Content Search") unchanged. README §Usage step 3,
+        spec.md §3.3, and CHANGELOG `[Unreleased]` synced.
 
 - [x] **Phase 4 — Docs + verification**
   - [x] `README.md` — new feature bullet under "Features", new usage

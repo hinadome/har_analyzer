@@ -188,9 +188,10 @@ Horizontal link group (always visible when data is loaded):
 | ---- | ----- |
 | Performance overview | `/performance` |
 | Pair diff | `/performance/diff` when ≥ 2 files |
-| CORS | `/cors` when cross-origin traffic exists; badge = error count, warning count, or **clear** label |
-| Search headers/cookies | `/kv-search` |
 | Entry diff | `/entry-diff` |
+| Search content | `/content-search` — free-text search over response bodies |
+| Search headers/cookies | `/kv-search` |
+| CORS | `/cors` when cross-origin traffic exists; badge = error count, warning count, or **clear** label |
 | MIME mismatch | `/mime-mismatch` — badge = mismatch count or **clear** |
 | Cache validator | `/cache-validator` — badge = path groups with ETag/LM drift or **clear** |
 | Anomalies | `/anomalies` — badge = unique paths with any anomaly or **clear** |
