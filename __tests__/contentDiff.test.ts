@@ -516,26 +516,61 @@ describe("sha256Hex", () => {
 describe("urlMatchesSearch / filterUrlsBySearch", () => {
   const url = "https://api.example.com/v1/users?page=1&token=abc";
 
-  it("matches full URL substring (query param)", () => {
-    expect(urlMatchesSearch(url, "token=abc")).toBe(true);
-  });
+  // ---- Path mode (default) = pathname-only -------------------------------
 
-  it("matches base path substring", () => {
-    expect(urlMatchesSearch(url, "https://api.example.com/v1/users")).toBe(
-      true,
-    );
+  it("path mode matches a pathname substring", () => {
     expect(urlMatchesSearch(url, "/v1/users")).toBe(true);
+    expect(urlMatchesSearch(url, "users")).toBe(true);
   });
 
-  it("is case-insensitive", () => {
+  it("path mode is case-insensitive", () => {
     expect(urlMatchesSearch(url, "/V1/USERS")).toBe(true);
   });
 
-  it("returns false for empty query", () => {
-    expect(urlMatchesSearch(url, "   ")).toBe(false);
+  it("path mode does NOT leak query-string matches", () => {
+    // "token=abc" lives in the query, not the pathname.
+    expect(urlMatchesSearch(url, "token=abc")).toBe(false);
+    expect(urlMatchesSearch(url, "page=1")).toBe(false);
   });
 
-  it("filterUrlsBySearch dedupes and preserves order", () => {
+  it("path mode does NOT leak host matches", () => {
+    // "api.example.com" is the host, not part of the pathname.
+    expect(urlMatchesSearch(url, "api.example.com")).toBe(false);
+    expect(
+      urlMatchesSearch("https://users.example.com/api/orders", "users"),
+    ).toBe(false);
+  });
+
+  it("path mode reduces a pasted full URL to its pathname", () => {
+    expect(
+      urlMatchesSearch(url, "https://api.example.com/v1/users"),
+    ).toBe(true);
+    // A pasted full URL whose pathname differs does not match.
+    expect(
+      urlMatchesSearch(url, "https://api.example.com/v1/orders"),
+    ).toBe(false);
+  });
+
+  it("returns false for an empty query in either mode", () => {
+    expect(urlMatchesSearch(url, "   ")).toBe(false);
+    expect(urlMatchesSearch(url, "   ", true)).toBe(false);
+  });
+
+  // ---- Full-URL mode (Match full URL toggle) -----------------------------
+
+  it("full-URL mode matches host and query substrings", () => {
+    expect(urlMatchesSearch(url, "token=abc", true)).toBe(true);
+    expect(urlMatchesSearch(url, "api.example.com", true)).toBe(true);
+    expect(urlMatchesSearch(url, "/v1/users", true)).toBe(true);
+  });
+
+  it("full-URL mode is case-insensitive", () => {
+    expect(urlMatchesSearch(url, "TOKEN=ABC", true)).toBe(true);
+  });
+
+  // ---- filterUrlsBySearch -------------------------------------------------
+
+  it("filterUrlsBySearch (path mode) keeps same-pathname URLs regardless of query", () => {
     const urls = [
       url,
       "https://api.example.com/v1/users?page=2",
@@ -546,6 +581,26 @@ describe("urlMatchesSearch / filterUrlsBySearch", () => {
       "https://api.example.com/v1/users?page=2",
     ]);
     expect(stripQuery(url)).toBe("https://api.example.com/v1/users");
+  });
+
+  it("filterUrlsBySearch (path mode) does not surface host/query-only matches", () => {
+    const urls = [
+      "https://users.example.com/api/orders", // host has "users"
+      "https://cdn.example.com/static/app.js?u=/users", // query has "/users"
+      "https://example.com/users/42", // pathname genuinely has "/users"
+    ];
+    expect(filterUrlsBySearch(urls, "/users")).toEqual([
+      "https://example.com/users/42",
+    ]);
+  });
+
+  it("filterUrlsBySearch (full-URL mode) surfaces host/query matches", () => {
+    const urls = [
+      "https://users.example.com/api/orders",
+      "https://cdn.example.com/static/app.js?u=/users",
+      "https://example.com/users/42",
+    ];
+    expect(filterUrlsBySearch(urls, "/users", true)).toEqual(urls);
   });
 });
 

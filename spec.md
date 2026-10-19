@@ -361,7 +361,7 @@ Unified comparison of **headers/cookies** and **response bodies** between any tw
 
 Legacy routes `/content-diff` and `/header-diff` redirect here with `?section=content` or `?section=headers`.
 
-**URL / path search:** same rules as prior content/header diff (§4.8–4.9 in v0.2.0): pathname-first dropdown, query ignored in path mode, **Match full URL** escape hatch, `?url=` deep links normalized via `pathKey()`.
+**URL / path search:** pathname-first dropdown. In the default (path) mode the search needle is matched against the entry **pathname only** (`pathKey(url)`), so text in the host or query string never surfaces an unrelated path; a needle that is itself a full URL is reduced to its pathname first (so a pasted URL still resolves by path). Ticking **Match full URL** switches both the search and the selection to the entire URL (scheme + host + path + query), making host/query fragments searchable. `?url=` deep links are normalized via `pathKey()`. Matching helpers: `urlMatchesSearch(url, query, matchExactUrl)` / `filterUrlsBySearch(urls, query, matchExactUrl)` in `utils/contentDiff.ts`.
 
 **Entry table columns:**
 

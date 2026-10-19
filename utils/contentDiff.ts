@@ -111,21 +111,60 @@ export function pathKey(url: string): string {
 }
 
 /**
- * Case-insensitive substring match on the full URL or its pathname.
- * Path-style needles like `/hello` match across hosts.
+ * Case-insensitive substring match used by the path/URL picker.
+ *
+ * - Path mode (default, `matchExactUrl === false`): the needle is tested
+ *   against the URL **pathname only** (`pathKey`), so `/users` cannot be
+ *   satisfied by a match in the host or query string. A needle that itself
+ *   parses as / contains a full URL is reduced to its pathname first, so
+ *   pasting a full URL still resolves to its path.
+ * - Full-URL mode (`matchExactUrl === true`): the needle is tested against
+ *   the **entire URL** (scheme + host + path + query), so host and query
+ *   fragments are searchable.
  */
-export function urlMatchesSearch(url: string, query: string): boolean {
-  const q = query.trim().toLowerCase();
+/**
+ * True when the string parses as an absolute URL with a scheme (e.g.
+ * `https://host/path`). Bare paths (`/users`), hosts (`api.example.com`),
+ * and words (`users`) are not full URLs.
+ */
+function isFullUrl(s: string): boolean {
+  try {
+    const u = new URL(s);
+    return Boolean(u.protocol) && Boolean(u.host);
+  } catch {
+    return false;
+  }
+}
+
+export function urlMatchesSearch(
+  url: string,
+  query: string,
+  matchExactUrl = false,
+): boolean {
+  const raw = query.trim();
+  const q = raw.toLowerCase();
   if (!q) return false;
-  if (url.toLowerCase().includes(q)) return true;
-  return pathKey(url).toLowerCase().includes(q);
+  if (matchExactUrl) {
+    return url.toLowerCase().includes(q);
+  }
+  // Path mode: compare against the URL pathname only, so host/query matches
+  // never leak in. If the needle is itself a full URL (has a scheme), reduce
+  // it to its pathname so a pasted URL still resolves by path; otherwise use
+  // the raw needle as a pathname substring.
+  const hay = pathKey(url).toLowerCase();
+  const needle = isFullUrl(raw) ? pathKey(raw).toLowerCase() : q;
+  return hay.includes(needle);
 }
 
 /** Filter unique URL strings by a search needle (full URL or pathname). */
-export function filterUrlsBySearch(urls: string[], query: string): string[] {
+export function filterUrlsBySearch(
+  urls: string[],
+  query: string,
+  matchExactUrl = false,
+): string[] {
   const q = query.trim();
   if (!q) return [];
-  return urls.filter((u) => urlMatchesSearch(u, q));
+  return urls.filter((u) => urlMatchesSearch(u, q, matchExactUrl));
 }
 
 /**

@@ -16,9 +16,14 @@
 - **Home Tools row order** — tools are now grouped as navigate → search → audit: **Performance overview · Pair diff · Entry diff · Search content · Search headers/cookies · CORS · MIME mismatch · Cache validator · Anomalies** (previously CORS and the search tools sat between Pair diff and Entry diff). Conditional visibility is unchanged — Pair diff still requires ≥ 2 files and CORS still requires cross-origin traffic. `README.md` usage step 3 and `spec.md` §3.3 synced to the new order (§3.3 also gains the previously missing **Search content** row).
 - **Tools label** — the response-body search pill reads **Search content** (was "Content search"), aligning with the neighbouring **Search headers/cookies** verb-first phrasing. Route (`/content-search`) and page title ("Content Search") unchanged.
 
+### Fixed
+
+- **Entry diff path filter leaked host/query matches** — in the default **Search by path** mode, `urlMatchesSearch` tested the needle against the whole URL (host + path + query) and then grouped survivors by pathname, so typing `/users` could surface unrelated paths whose host (`users.example.com`) or query (`?u=/users`) contained the text. Path mode now matches the **pathname only** (`utils/contentDiff.ts`); a needle that is itself a full URL is reduced to its pathname first (via the new `isFullUrl` guard) so a pasted URL still resolves by path, while bare host/query fragments no longer leak in. **Match full URL** now governs the search as well as the selection — tick it to search the entire URL (host + path + query). `urlMatchesSearch` / `filterUrlsBySearch` gained a `matchExactUrl` argument, threaded through `useUrlPathSelection`. Also fixes the shared behavior behind the legacy `/content-diff` and `/header-diff` redirects.
+
 ### Tests
 
 - Added 16 tests in `__tests__/contentSearch.test.ts` (Vitest, node env) — `searchContent` (empty needle, contains occurrence count, case sensitivity, exact-mode whole-body equality, regex match count, invalid regex error), body handling (missing-body skip + count, empty-string body not counted as missing, URL pre-filter case-insensitivity, `filesTouched` across distinct `harFileIndex`), `buildSnippets` (no ranges, snippet-local range rebasing, overlapping-window merge, distant-match separation, snippet cap), and `contentEntryId`. Full suite 351/351 across 25 files; `npm run build` green with `/content-search` prerendered as a static route.
+- Rewrote the `urlMatchesSearch` / `filterUrlsBySearch` suite in `__tests__/contentDiff.test.ts` for the corrected path-vs-full-URL semantics: path mode matches a pathname substring, is case-insensitive, and does **not** surface host-only or query-only needles; a pasted full URL reduces to its pathname; full-URL mode matches host/query/path substrings. 66/66 in that file.
 
 ## [0.2.0]
 

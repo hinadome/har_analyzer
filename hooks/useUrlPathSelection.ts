@@ -52,7 +52,10 @@ export function useUrlPathSelection({
 
   const urlGroups = useMemo<UrlGroup[]>(() => {
     if (!urlInput) return [];
-    return buildUrlGroups(filterUrlsBySearch(allUrls, urlInput), matchExactUrl);
+    return buildUrlGroups(
+      filterUrlsBySearch(allUrls, urlInput, matchExactUrl),
+      matchExactUrl,
+    );
   }, [allUrls, urlInput, matchExactUrl]);
 
   const urlParamNotFound =
