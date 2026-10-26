@@ -23,6 +23,7 @@ import {
   hasCapturedResponseBody,
   TRUNCATION_LIMIT,
 } from "@/utils/contentDiff";
+import { looksLikeBase64, decodeBase64ToText } from "@/utils/base64";
 import { normalizeTiming } from "@/utils/perfStats";
 import { TIMING_PHASES } from "@/components/timingPhases";
 import { PageShell } from "@/components/shell/PageShell";
@@ -580,10 +581,26 @@ function ContentCard({ entry }: { entry: EntryRecord }) {
   const binaryMime = isBinaryMimeType(entry);
   const { body: loaded, loading } = useEntryBody(entry);
   const body = loaded ?? "";
-  const fullLength = body.length;
   const [showFull, setShowFull] = useState(false);
+  const [decode, setDecode] = useState(false);
+
+  // Only offer base64 decoding for non-binary bodies that actually look like
+  // base64 and decode to valid UTF-8 text. Memoized because the check decodes.
+  const decoded = useMemo(
+    () => (binaryMime || !body ? null : decodeBase64ToText(body)),
+    [binaryMime, body],
+  );
+  const canDecode = useMemo(
+    () => !binaryMime && !!body && looksLikeBase64(body),
+    [binaryMime, body],
+  );
+
+  // When decoding is on and possible, the displayed/copied content is the
+  // decoded text; otherwise it's the raw body.
+  const displaySource = decode && canDecode && decoded !== null ? decoded : body;
+  const fullLength = displaySource.length;
   const truncated = !showFull && fullLength > TRUNCATION_LIMIT;
-  const text = truncated ? body.slice(0, TRUNCATION_LIMIT) : body;
+  const text = truncated ? displaySource.slice(0, TRUNCATION_LIMIT) : displaySource;
 
   return (
     <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40">
@@ -615,8 +632,24 @@ function ContentCard({ entry }: { entry: EntryRecord }) {
                 {truncated
                   ? `Showing first ${TRUNCATION_LIMIT.toLocaleString()} of ${fullLength.toLocaleString()} chars`
                   : `${fullLength.toLocaleString()} chars`}
+                {decode && canDecode && decoded !== null ? " · decoded" : ""}
               </span>
               <div className="flex items-center gap-2">
+                {canDecode && (
+                  <button
+                    type="button"
+                    onClick={() => setDecode((v) => !v)}
+                    aria-pressed={decode}
+                    title="This body looks like base64-encoded text. Toggle to decode it."
+                    className={`px-2 py-0.5 rounded border ${
+                      decode
+                        ? "border-blue-500 bg-blue-600 text-white"
+                        : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                    }`}
+                  >
+                    {decode ? "Show base64" : "Decode base64"}
+                  </button>
+                )}
                 {fullLength > TRUNCATION_LIMIT && (
                   <button
                     type="button"
@@ -626,7 +659,7 @@ function ContentCard({ entry }: { entry: EntryRecord }) {
                     {showFull ? "Show truncated" : "Show full"}
                   </button>
                 )}
-                <CopyButton text={body} />
+                <CopyButton text={displaySource} />
               </div>
             </div>
             <pre className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded p-3 max-h-[32rem] overflow-auto text-xs font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-all">

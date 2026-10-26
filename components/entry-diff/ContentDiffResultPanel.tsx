@@ -13,7 +13,9 @@ import {
   prettifyIfJson,
   truncateBody,
   computeDiff,
+  TRUNCATION_LIMIT,
 } from "@/utils/contentDiff";
+import { looksLikeBase64, decodeBase64ToText } from "@/utils/base64";
 import type { EntryRecord } from "@/types/har";
 
 interface ContentDiffResultPanelProps {
@@ -38,12 +40,44 @@ export function ContentDiffResultPanel({
   const bodiesLoading = baselineBodyLoading || compareBodyLoading;
   const eitherBinary = isBinaryEntry(baseline) || isBinaryEntry(compare);
 
+  const [decode, setDecode] = useState(false);
+
+  // Decoded forms of each side (null when not base64 / decodes to binary).
+  const baseDecoded = useMemo(
+    () => (eitherBinary ? null : decodeBase64ToText(baselineBody ?? "")),
+    [eitherBinary, baselineBody],
+  );
+  const cmpDecoded = useMemo(
+    () => (eitherBinary ? null : decodeBase64ToText(compareBody ?? "")),
+    [eitherBinary, compareBody],
+  );
+  // Only offer base64 decoding when BOTH sides look like base64 text —
+  // decoding only one side would diff decoded text against raw base64.
+  const canDecodeBoth = useMemo(
+    () =>
+      !eitherBinary &&
+      !!baselineBody &&
+      !!compareBody &&
+      looksLikeBase64(baselineBody) &&
+      looksLikeBase64(compareBody) &&
+      baseDecoded !== null &&
+      cmpDecoded !== null,
+    [eitherBinary, baselineBody, compareBody, baseDecoded, cmpDecoded],
+  );
+  const decoding = decode && canDecodeBoth;
+
   const diffData = useMemo(() => {
     if (eitherBinary) return null;
     if (baselineBody === undefined || compareBody === undefined) return null;
 
-    const baseTrunc = truncateBody(baselineBody, showFullBaseline);
-    const cmpTrunc = truncateBody(compareBody, showFullCompare);
+    // Decode first (when enabled), then truncate, then prettify, then diff.
+    const baseSource =
+      decoding && baseDecoded !== null ? baseDecoded : baselineBody;
+    const cmpSource =
+      decoding && cmpDecoded !== null ? cmpDecoded : compareBody;
+
+    const baseTrunc = truncateBody(baseSource, showFullBaseline);
+    const cmpTrunc = truncateBody(cmpSource, showFullCompare);
 
     const basePrettified = prettifyIfJson(
       baseTrunc.text,
@@ -68,6 +102,11 @@ export function ContentDiffResultPanel({
       baseFullLength: baseTrunc.fullLength,
       cmpTruncated: cmpTrunc.wasTruncated,
       cmpFullLength: cmpTrunc.fullLength,
+      // Whether each side CAN be truncated (full length over the limit),
+      // independent of the current showFull state — so the toggle stays
+      // visible after expanding and can collapse back.
+      baseTruncatable: baseTrunc.fullLength > TRUNCATION_LIMIT,
+      cmpTruncatable: cmpTrunc.fullLength > TRUNCATION_LIMIT,
     };
   }, [
     baseline,
@@ -77,6 +116,9 @@ export function ContentDiffResultPanel({
     eitherBinary,
     showFullBaseline,
     showFullCompare,
+    decoding,
+    baseDecoded,
+    cmpDecoded,
   ]);
 
   return (
@@ -109,7 +151,28 @@ export function ContentDiffResultPanel({
             Side-by-Side
           </button>
         </div>
+        {canDecodeBoth && (
+          <button
+            type="button"
+            onClick={() => setDecode((v) => !v)}
+            aria-pressed={decode}
+            title="Both bodies look like base64-encoded text. Toggle to diff the decoded text."
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+              decode
+                ? "border-blue-500 bg-blue-600 text-white"
+                : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+            }`}
+          >
+            {decode ? "Show base64" : "Decode base64"}
+          </button>
+        )}
       </div>
+
+      {decoding && (
+        <div className="text-xs text-blue-600 dark:text-blue-400 italic">
+          Diffing base64-decoded text (both sides).
+        </div>
+      )}
 
       {eitherBinary ? (
         <BinaryHashCompare
@@ -149,7 +212,7 @@ export function ContentDiffResultPanel({
             </div>
           )}
 
-          {diffData?.baseTruncated && (
+          {diffData?.baseTruncatable && (
             <TruncationNotice
               label="Baseline"
               fullLength={diffData.baseFullLength}
@@ -157,7 +220,7 @@ export function ContentDiffResultPanel({
               onToggle={() => setShowFullBaseline((v) => !v)}
             />
           )}
-          {diffData?.cmpTruncated && (
+          {diffData?.cmpTruncatable && (
             <TruncationNotice
               label="Compare"
               fullLength={diffData.cmpFullLength}
