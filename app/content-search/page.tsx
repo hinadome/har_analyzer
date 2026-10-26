@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/shell/EmptyState";
 import { LoadingState } from "@/components/shell/LoadingState";
 import { useHarStore } from "@/hooks/useHarStore";
 import { loadEntryBodyAsync } from "@/utils/storage";
+import { decodeBase64ToText } from "@/utils/base64";
 import {
   searchContent,
   type ContentSearchMode,
@@ -39,6 +40,7 @@ function parseQuery(sp: URLSearchParams, fileCount: number): PageQuery {
     url: sp.get("url") ?? "",
     mode: parseMode(sp.get("mode")),
     caseSensitive: sp.get("cs") === "1",
+    decode: sp.get("decode") === "1",
     file,
     expand: parseExpandParam(sp.get("expand")),
   };
@@ -61,6 +63,10 @@ function buildQueryString(patch: Partial<PageQuery>, base: URLSearchParams) {
   if (patch.caseSensitive !== undefined) {
     if (!patch.caseSensitive) next.delete("cs");
     else next.set("cs", "1");
+  }
+  if (patch.decode !== undefined) {
+    if (!patch.decode) next.delete("decode");
+    else next.set("decode", "1");
   }
   if (patch.file !== undefined) {
     if (patch.file === "all") next.delete("file");
@@ -183,20 +189,34 @@ function ContentSearchPageContent() {
     };
   }, [hasInput, candidates]);
 
-  // Pair each candidate with its resolved body.
-  const records = useMemo<EntryBody[]>(() => {
-    return candidates.map((entry) => {
-      const body =
+  // Pair each candidate with its resolved body. When the decode toggle is on,
+  // bodies that look like base64 and decode to text are replaced with the
+  // decoded text so the search (and snippets) run over the decoded content.
+  const { records, decodedCount } = useMemo<{
+    records: EntryBody[];
+    decodedCount: number;
+  }>(() => {
+    let decoded = 0;
+    const recs = candidates.map((entry) => {
+      const raw =
         entry.responseContent !== undefined
           ? entry.responseContent
           : entry.bodyId !== undefined
             ? bodyCache.current.get(entry.bodyId)
             : undefined;
-      return { entry, body };
+      if (q.decode && raw) {
+        const dec = decodeBase64ToText(raw);
+        if (dec !== null) {
+          decoded += 1;
+          return { entry, body: dec };
+        }
+      }
+      return { entry, body: raw };
     });
+    return { records: recs, decodedCount: decoded };
     // forceTick (via loadingBodies) drives recompute after loads land.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candidates, loadingBodies]);
+  }, [candidates, loadingBodies, q.decode]);
 
   const outcome = useMemo(() => {
     const query: ContentSearchQuery = {
@@ -245,6 +265,7 @@ function ContentSearchPageContent() {
         analyses={analyses}
         hasInput={hasInput}
         query={q}
+        decodedCount={decodedCount}
       />
       <ResultsTable
         hits={outcome.hits}

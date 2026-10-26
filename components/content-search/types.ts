@@ -7,6 +7,8 @@ export interface PageQuery {
   url: string;
   mode: ContentSearchMode;
   caseSensitive: boolean;
+  /** When true, search the base64-decoded form of bodies that look like base64. */
+  decode: boolean;
   file: FileScope;
   expand: string;
 }

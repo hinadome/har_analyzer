@@ -626,6 +626,16 @@ Defaults are normalised out of the URL when serialised (e.g. all four scope toke
 - Per-file page (`app/file/[index]/page.tsx`) — a **Search Headers/Cookies →** link appears next to the file index, deep-linking to `/kv-search?file={index}`. Always visible (every file has headers).
 - `/cors` handshake panel — every CORS header name in the Request / Response cards is a deep link to `/kv-search?name=<header>&scope=rh|sh&file=<index>` so the audit row can be jumped into the search page pre-scoped to the relevant file and side.
 
+#### Content Search page (`/content-search`)
+
+Free-text search over **response bodies** — the body-content counterpart to `/kv-search`. Pure engine in `utils/contentSearch.ts` (`searchContent`, `buildSnippets`, `contentEntryId`), reusing `compileMatcher` from `utils/kvSearch.ts` so `contains` / `exact` / `regex` modes, the case-sensitive toggle, and the regex CPU budget are shared.
+
+- **On-demand bodies:** response bodies live in cold IndexedDB (§1.5). The page only loads bodies for entries that pass the optional `URL contains` pre-filter and have a captured body, fetched once a needle is present and cached by `bodyId` (a "Loading bodies…" indicator shows while fetching).
+- **Decode base64:** a `Decode base64` toggle searches the decoded UTF-8 of bodies that `looksLikeBase64` and decode cleanly (`decodeBase64ToText`, `utils/base64.ts`). Decoding is applied **per body in the page** before `searchContent`, so match counts and highlighted snippets reflect the decoded content; bodies that are not base64 are searched as-is. The summary reports how many bodies were base64-decoded.
+- **UI:** `Body contains` needle + optional `URL contains` pre-filter (debounced 200 ms), Mode `<select>`, case-sensitive checkbox, **Decode base64** checkbox, File scope `<select>`. Paginated results (50/page) with click-to-expand highlighted snippets (context window, overlapping windows merged); pagination resets when any query field — including `decode` — changes.
+- **URL state:** `?text=&url=&mode=contains|exact|regex&cs=0|1&decode=0|1&file=all|<index>&expand=<harFileIndex>:<indexInFile>` — defaults normalised out, `?expand=` capped at 512 chars. The URL cell deep-links to `/compare`; the expanded panel deep-links to `/entry/[file]/[index]`.
+- Only entries whose response body was captured (and not stripped by the privacy redaction toggle) are searchable.
+
 ### 4.14 Sorting
 
 - Clicking a column header sorts by that field ascending; clicking again toggles descending.

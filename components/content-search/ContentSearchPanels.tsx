@@ -153,6 +153,18 @@ export function SearchBar({
           />
           Case sensitive
         </label>
+        <label
+          className="inline-flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300"
+          title="For bodies that are base64-encoded text, search the decoded UTF-8 instead of the raw base64."
+        >
+          <input
+            type="checkbox"
+            checked={query.decode}
+            onChange={(e) => setQuery({ decode: e.target.checked })}
+            className="accent-blue-600"
+          />
+          Decode base64
+        </label>
         {analyses.length > 1 && (
           <div className="flex items-center gap-2">
             <label
@@ -199,11 +211,13 @@ export function SummaryLine({
   analyses,
   hasInput,
   query,
+  decodedCount = 0,
 }: {
   outcome: ContentSearchOutcome;
   analyses: HarAnalysis[];
   hasInput: boolean;
   query: PageQuery;
+  decodedCount?: number;
 }) {
   if (!hasInput) return null;
   if (outcome.errors.length > 0) return null;
@@ -245,6 +259,9 @@ export function SummaryLine({
         {entriesWithoutBody > 0
           ? ` · ${entriesWithoutBody.toLocaleString()} without a captured body`
           : ""}
+        {query.decode
+          ? ` · ${decodedCount.toLocaleString()} base64-decoded`
+          : ""}
       </span>
     </div>
   );
@@ -282,6 +299,7 @@ export function ResultsTable({
     query.mode,
     query.file,
     query.caseSensitive,
+    query.decode,
   ]);
 
   useEffect(() => {
