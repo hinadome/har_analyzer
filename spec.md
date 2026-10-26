@@ -141,7 +141,7 @@ Analyzer: `utils/contentType.ts` (`resolveContentType`, `enrichEntryContentType`
 ### 2.5 Per-file aggregates computed
 
 - `totalRequests` — total entry count
-- `totalContentSize` — sum of `entry.response.content.size` across all entries (bytes)
+- `totalContentSize` — sum of `entry.response.content.size` across all entries (bytes). This is the HAR's **decoded body size** (bytes the browser received after decompression), **not** the `Content-Length` header; a size is recorded even with no `Content-Length` (chunked), for compressed responses (where `Content-Length` is the smaller wire size), and for cached / service-worker responses. The separate `bodySize` (`entry.response.bodySize`, the transferred/wire size) is tracked per entry but is **not** used in the size aggregations.
 - `statusCodeCounts` — map of `{ statusCode: count }`
 - `methodCounts` — map of `{ uppercaseMethod: count }`; missing / empty `request.method` is bucketed as `(no method)`
 - `contentTypeCounts` — map of `{ normalizedMimeType: count }`
@@ -340,7 +340,7 @@ Displays all recorded entries for a specific URL grouped by HAR file, enabling c
 
 **Page header URL** — the captured URL is shown in a monospace block. When the URL uses `http:` or `https:`, it is a clickable external link (`target="_blank"`, `rel="noopener noreferrer"`). Non-HTTP(S) schemes render as plain text (no `href`) to avoid `javascript:` / `data:` navigation from HAR content.
 
-**Per-file summary row**: HAR file name, hit count, observed status codes, content types, avg/min/max response time, avg size, server IPs, user agents. Expandable to show individual entries.
+**Per-file summary row**: HAR file name, hit count, observed status codes, content types, avg/min/max response time, avg size, server IPs, user agents. Expandable to show individual entries. **Avg size** is the plain mean `Σ contentSize / hitCount` where `contentSize = entry.response.content.size` (the HAR decoded body size, **not** the `Content-Length` header; see §2 `totalContentSize`). The `/details` URL-group table (§4.5) computes its **Avg Size** column the same way.
 
 **Expanded entry detail** — clicking an individual request shows a tabbed panel:
 

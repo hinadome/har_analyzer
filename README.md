@@ -102,6 +102,16 @@ For files ≥ 5 MB, an optional Web Worker parse path can be enabled (falls back
 - `localStorage.setItem('har_parse_worker', '1')`, or
 - build with `NEXT_PUBLIC_HAR_PARSE_WORKER=1`
 
+### Understanding size data
+
+Content sizes (home "content size totals", the per-content-type **avg size**, the file-performance size stats, and the size-drift anomaly) are all derived from the HAR's **`entry.response.content.size`** field — **not** the `Content-Length` response header.
+
+- **Source:** `contentSize = entry.response.content.size` at parse time (`utils/harParser.ts`). `Content-Length` is never consulted for this number.
+- **Avg size:** a plain mean. The per-content-type table (`computeContentTypePerf` in `utils/perfStats.ts`) sums `contentSize` over the entries in each content-type group (`totalBytes`) and divides by the entry **count**; zero-size entries are included in both. The file-level total (`totalContentSize`) is the same sum across every entry.
+- **Why a size can appear with no `Content-Length` header:** `content.size` is the HAR spec's size of the response body **after decompression** — the bytes the browser actually received/decoded. The browser records it even when there is no `Content-Length` header at all (chunked `Transfer-Encoding`), when the body was gzip/brotli-compressed (then `Content-Length` is the smaller *wire* size while `content.size` is the *uncompressed* size), or when the response came from cache / a service worker.
+- **`content.size` vs `bodySize`:** `content.size` (decoded body size) drives all the size aggregations and **avg size**. A separate `bodySize` (`entry.response.bodySize`, the transferred/wire size) is shown as "transferred bytes" on the single-entry detail page. The two differ for compressed responses.
+- **Caveat:** the HAR spec uses `-1` for "unknown size"; exporters that omit bodies usually write `0`. Averages include whatever value is present, so a file full of `-1`/`0` sizes will report a low or zero avg size.
+
 ### Understanding timing data
 
 HAR files record per-request timing phases from `entry.timings`. The app displays six of them:
