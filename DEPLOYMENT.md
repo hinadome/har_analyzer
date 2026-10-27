@@ -10,7 +10,7 @@ Run locally or in CI before shipping:
 
 ```bash
 npm ci
-npm test          # Vitest suite (373 tests)
+npm test          # Vitest suite (378 tests)
 npm run build     # must succeed with output: 'standalone'
 ```
 
@@ -20,7 +20,7 @@ Manual smoke after deploy (see [Post-deploy verification](#post-deploy-verificat
 2. Upload a sample HAR — insight strip, Tools row, primary CTA
 3. If the capture has cross-origin traffic — `/cors` shows KPIs + **CORS requests** inventory even when findings are zero. Confirm `Sec-Fetch-Mode: no-cors` rows are not flagged as ACAO errors; Cookie-less Bearer APIs should not show credentials-flag findings.
 4. Open `/entry-diff` — search a pathname (e.g. `/hello`); confirm **Selected path** and multi-host entries. Confirm **Search by path** matches the pathname only — a needle that appears solely in a host or query string must **not** surface the path; tick **Match full URL** to search the whole URL (host + path + query). Pick baseline + compare; switch **Headers | Content** tabs (status chips on each tab)
-5. **Headers** tab — four section cards in a 2×2 grid; **Content** tab — body diff or **no body** / **binary** badges; when both bodies are base64-encoded text, a **Decode base64** toggle diffs the decoded UTF-8; no duplicate-key console errors
+5. **Headers** tab — four section cards in a 2×2 grid; **Content** tab — body diff or **no body** / **binary** badges; when both bodies are base64-encoded text, a **Decode base64** toggle diffs the decoded UTF-8, and toggling **Show full content** / **Show less** on a decoded (often single-line) body stays responsive — no tab freeze (intra-line word diff is capped past `INTRA_LINE_DIFF_MAX`); no duplicate-key console errors
 6. Legacy `/content-diff` and `/header-diff` redirect with `?section=` preserved
 7. Open `/mime-mismatch` — mismatch rows; Tools badge count; optional **Show unverified extensions**
 8. Open `/cache-validator` — path groups with ETag or Last-Modified drift; **W** / **S** ETag chips; expand entries; Tools badge count; optional **Show paths with no cache validators**
@@ -225,7 +225,7 @@ After Docker or VM deploy, confirm the **0.2.0** UI and assets load correctly:
 | Upload | Progress line shows file name while parsing; data persists across refresh (IndexedDB v2) |
 | Insight strip | Request/error/size totals; CORS chip only when audit has errors/warnings (clean CORS via Tools **clear**); **Tools** row (CORS, MIME mismatch, Cache validator, Anomalies badges); comparison table behind **Full metrics table** |
 | CORS `/cors` | Page title **CORS** (not "CORS Audit"); when cross-origin traffic exists but audit is clean, **CORS requests** table lists entries (not an empty dead-end). Uses `Sec-Fetch-Mode` to avoid false ACAO errors on `no-cors` / navigations; credentialed = Cookie only |
-| Entry diff `/entry-diff` | Search a pathname; **Selected path** banner; unified entry table. **Search by path** matches pathname only (host/query text does not surface unrelated paths); **Match full URL** searches the whole URL. **Headers | Content** tabs with status chips. Headers: 2×2 section cards. Content: body diff or **no body** / **binary** badges. Bodies load only on Content tab. When both bodies are base64-encoded text, a **Decode base64** toggle diffs the decoded UTF-8. No duplicate-key console errors |
+| Entry diff `/entry-diff` | Search a pathname; **Selected path** banner; unified entry table. **Search by path** matches pathname only (host/query text does not surface unrelated paths); **Match full URL** searches the whole URL. **Headers | Content** tabs with status chips. Headers: 2×2 section cards. Content: body diff or **no body** / **binary** badges. Bodies load only on Content tab. When both bodies are base64-encoded text, a **Decode base64** toggle diffs the decoded UTF-8; **Show full content** on a decoded single-line body stays responsive (intra-line word diff capped past `INTRA_LINE_DIFF_MAX`). No duplicate-key console errors |
 | Legacy redirects | `/content-diff` → `?section=content`; `/header-diff` → `?section=headers` |
 | MIME mismatch `/mime-mismatch` | Mismatch table (effective Content-Type); insight strip card when mismatches exist; **Show unverified extensions** off by default; Tools badge count |
 | Cache validator `/cache-validator` | Pathname groups with ETag or Last-Modified drift; weak (**W**, dashed) vs strong (**S**) ETag chips; expandable entry list; insight strip + Tools badge; **no-validator** paths toggle |

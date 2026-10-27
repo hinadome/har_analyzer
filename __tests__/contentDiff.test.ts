@@ -21,6 +21,7 @@ import {
   computeDiff,
   sha256Hex,
   TRUNCATION_LIMIT,
+  INTRA_LINE_DIFF_MAX,
   urlMatchesSearch,
   filterUrlsBySearch,
   stripQuery,
@@ -262,6 +263,37 @@ describe("computeDiff", () => {
   it("prettified flag is propagated", () => {
     const result = computeDiff("a", "b", true);
     expect(result.prettified).toBe(true);
+  });
+
+  it("skips the intra-line word diff on very long paired lines (no freeze)", () => {
+    // A single huge line that differs at the end — mimics a minified /
+    // base64-decoded JSON body. The per-line word diff must be skipped past
+    // INTRA_LINE_DIFF_MAX, leaving the line classified but with no spans.
+    const filler = "x".repeat(INTRA_LINE_DIFF_MAX + 50);
+    const base = filler + "A";
+    const cmp = filler + "B";
+
+    const start = Date.now();
+    const result = computeDiff(base, cmp);
+    const elapsed = Date.now() - start;
+
+    const removed = result.leftLines.find((l) => l.kind === "removed");
+    const added = result.rightLines.find((l) => l.kind === "added");
+    expect(removed).toBeDefined();
+    expect(added).toBeDefined();
+    // Past the cap: line-level removed/added kept, but no intra-line spans.
+    expect(removed!.spans).toHaveLength(0);
+    expect(added!.spans).toHaveLength(0);
+    // Sanity: it returns effectively instantly (guard prevents the O(n·m) blowup).
+    expect(elapsed).toBeLessThan(1000);
+  });
+
+  it("still computes intra-line spans for short paired lines", () => {
+    const result = computeDiff("hello world", "hello there");
+    const removed = result.leftLines.find((l) => l.kind === "removed");
+    expect(removed).toBeDefined();
+    // Under the cap, intra-line highlighting is still produced.
+    expect(removed!.spans.length).toBeGreaterThan(0);
   });
 });
 

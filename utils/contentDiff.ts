@@ -59,6 +59,15 @@ export interface UrlGroup {
 
 export const TRUNCATION_LIMIT = 50_000;
 
+/**
+ * Max combined length of a paired removed/added line before the per-line
+ * word-level diff (`diffWordsWithSpace`) is skipped. Character-level diffing
+ * is roughly O(n·m); on very long lines (e.g. a minified or base64-decoded
+ * single-line JSON body) it can lock the main thread. Past this cap we keep
+ * the line-level removed/added classification but drop intra-line spans.
+ */
+export const INTRA_LINE_DIFF_MAX = 2_000;
+
 const BINARY_MIME_PREFIXES = [
   "image/",
   "audio/",
@@ -437,29 +446,33 @@ export function computeDiff(
           const addText = j < addedLines.length ? addedLines[j] : null;
 
           if (remText !== null && addText !== null) {
-            // Both sides have a line — compute intra-line spans
+            // Both sides have a line — compute intra-line spans, but skip the
+            // (potentially O(n·m)) word diff on very long lines so a minified
+            // or base64-decoded single-line body cannot freeze the UI thread.
             const leftLine = makeLine(leftLineNum++, remText, "removed");
             const rightLine = makeLine(rightLineNum++, addText, "added");
 
-            const wordDiff = diffWordsWithSpace(remText, addText);
-            leftLine.spans = wordDiff
-              .filter((s) => !s.added)
-              .map(
-                (s) =>
-                  ({
-                    text: s.value,
-                    kind: s.removed ? "removed" : "equal",
-                  }) as IntraSpan,
-              );
-            rightLine.spans = wordDiff
-              .filter((s) => !s.removed)
-              .map(
-                (s) =>
-                  ({
-                    text: s.value,
-                    kind: s.added ? "added" : "equal",
-                  }) as IntraSpan,
-              );
+            if (remText.length + addText.length <= INTRA_LINE_DIFF_MAX) {
+              const wordDiff = diffWordsWithSpace(remText, addText);
+              leftLine.spans = wordDiff
+                .filter((s) => !s.added)
+                .map(
+                  (s) =>
+                    ({
+                      text: s.value,
+                      kind: s.removed ? "removed" : "equal",
+                    }) as IntraSpan,
+                );
+              rightLine.spans = wordDiff
+                .filter((s) => !s.removed)
+                .map(
+                  (s) =>
+                    ({
+                      text: s.value,
+                      kind: s.added ? "added" : "equal",
+                    }) as IntraSpan,
+                );
+            }
 
             leftLines.push(leftLine);
             rightLines.push(rightLine);
