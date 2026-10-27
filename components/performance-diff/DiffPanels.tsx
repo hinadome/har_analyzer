@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
 import { formatBytes, formatTime } from "@/utils/harParser";
 import {
@@ -27,6 +27,7 @@ import {
   type Direction,
 } from "@/utils/perfFormat";
 import type { HarAnalysis } from "@/types/har";
+import { groupByHostname } from "@/utils/hostname";
 import type { DiffQuery } from "./types";
 
 export function PageTitle({
@@ -911,6 +912,13 @@ function UniqueUrlTable({
 }) {
   const [sortField, setSortField] = useState<UniqueSortField>("count");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [filter, setFilter] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => r.url.toLowerCase().includes(q));
+  }, [rows, filter]);
 
   const sorted = useMemo(() => {
     const cmpFn = (a: UniqueUrlRow, b: UniqueUrlRow) => {
@@ -924,8 +932,8 @@ function UniqueUrlTable({
         d = a.medianTime - b.medianTime;
       return sortDir === "asc" ? d : -d;
     };
-    return [...rows].sort(cmpFn);
-  }, [rows, sortField, sortDir]);
+    return [...filtered].sort(cmpFn);
+  }, [filtered, sortField, sortDir]);
 
   const toggle = (f: UniqueSortField) => {
     if (sortField === f) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -956,16 +964,40 @@ function UniqueUrlTable({
           {emptyText}
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-100 dark:bg-slate-900/40">
-              <tr>
-                <th
-                  className={`${headerCls} text-left`}
-                  onClick={() => toggle("url")}
-                >
-                  URL{arrow("url")}
-                </th>
+        <>
+          <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-700/60 flex items-center gap-2">
+            <input
+              type="text"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter URLs…"
+              className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2.5 py-1 text-xs font-mono text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-blue-500"
+            />
+            <span className="text-[11px] text-slate-500 dark:text-slate-500 whitespace-nowrap">
+              {filter.trim()
+                ? `${sorted.length.toLocaleString()} / ${rows.length.toLocaleString()}`
+                : `${rows.length.toLocaleString()} URL${rows.length === 1 ? "" : "s"}`}
+            </span>
+          </div>
+          {sorted.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-slate-600 dark:text-slate-500 text-center">
+              No URLs match{" "}
+              <span className="font-mono text-slate-700 dark:text-slate-300">
+                {filter.trim()}
+              </span>
+              .
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-100 dark:bg-slate-900/40">
+                  <tr>
+                    <th
+                      className={`${headerCls} text-left`}
+                      onClick={() => toggle("url")}
+                    >
+                      URL{arrow("url")}
+                    </th>
                 <th
                   className={`${headerCls} text-right w-16`}
                   onClick={() => toggle("count")}
@@ -987,34 +1019,56 @@ function UniqueUrlTable({
               </tr>
             </thead>
             <tbody>
-              {sorted.map((r) => (
-                <tr
-                  key={r.key}
-                  className="border-t border-slate-200 dark:border-slate-700/50 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 transition-colors"
-                >
-                  <td className="py-1.5 px-3 max-w-0">
-                    <Link
-                      href={`/file/${fileIndex}?search=${encodeURIComponent(r.key)}`}
-                      className="block truncate text-blue-600 dark:text-blue-400 hover:underline font-mono text-xs"
-                      title={`${r.url}\n\nClick to open ${fileName} filtered to this URL`}
-                    >
-                      {r.url}
-                    </Link>
-                  </td>
-                  <td className="py-1.5 px-3 text-right font-mono text-xs text-slate-700 dark:text-slate-300">
-                    {r.count.toLocaleString()}
-                  </td>
-                  <td className="py-1.5 px-3 text-right font-mono text-xs text-slate-700 dark:text-slate-300">
-                    {formatTime(r.medianTime)}
-                  </td>
-                  <td className="py-1.5 px-3 text-right font-mono text-xs text-slate-700 dark:text-slate-300">
-                    {formatBytes(r.medianSize)}
-                  </td>
-                </tr>
-              ))}
+              {groupByHostname(sorted, (r) => r.url).map(
+                ({ host, items }) => (
+                  <Fragment key={`host:${host}`}>
+                    <tr className="bg-slate-100/80 dark:bg-slate-800/70 border-t border-slate-200 dark:border-slate-700/50">
+                      <td
+                        colSpan={4}
+                        className="py-1.5 px-3 text-xs font-semibold text-slate-700 dark:text-slate-300"
+                      >
+                        <span className="font-mono break-all" title={host}>
+                          {host}
+                        </span>
+                        <span className="ml-2 font-normal text-slate-500 dark:text-slate-500">
+                          · {items.length.toLocaleString()} URL
+                          {items.length === 1 ? "" : "s"}
+                        </span>
+                      </td>
+                    </tr>
+                    {items.map((r) => (
+                      <tr
+                        key={r.key}
+                        className="border-t border-slate-200 dark:border-slate-700/50 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 transition-colors"
+                      >
+                        <td className="py-1.5 px-3 max-w-0">
+                          <Link
+                            href={`/file/${fileIndex}?search=${encodeURIComponent(r.key)}`}
+                            className="block truncate text-blue-600 dark:text-blue-400 hover:underline font-mono text-xs"
+                            title={`${r.url}\n\nClick to open ${fileName} filtered to this URL`}
+                          >
+                            {r.url}
+                          </Link>
+                        </td>
+                        <td className="py-1.5 px-3 text-right font-mono text-xs text-slate-700 dark:text-slate-300">
+                          {r.count.toLocaleString()}
+                        </td>
+                        <td className="py-1.5 px-3 text-right font-mono text-xs text-slate-700 dark:text-slate-300">
+                          {formatTime(r.medianTime)}
+                        </td>
+                        <td className="py-1.5 px-3 text-right font-mono text-xs text-slate-700 dark:text-slate-300">
+                          {formatBytes(r.medianSize)}
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
+                ),
+              )}
             </tbody>
           </table>
-        </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -15,11 +15,27 @@ import { PageShell } from "@/components/shell/PageShell";
 import { EmptyState } from "@/components/shell/EmptyState";
 import { LoadingState } from "@/components/shell/LoadingState";
 import { filterEntriesBySearch } from "@/utils/entrySearch";
+import { groupByHostname } from "@/utils/hostname";
 
 interface GroupedByUrl {
   url: string;
   entries: EntryRecord[];
   byFile: Record<number, EntryRecord[]>;
+}
+
+interface HostGroup {
+  host: string;
+  urlGroups: GroupedByUrl[];
+  totalHits: number;
+}
+
+/** Bucket URL groups by hostname; hosts and URLs sorted alphabetically. */
+function groupByHost(groups: GroupedByUrl[]): HostGroup[] {
+  return groupByHostname(groups, (g) => g.url).map(({ host, items }) => ({
+    host,
+    urlGroups: [...items].sort((a, b) => a.url.localeCompare(b.url)),
+    totalHits: items.reduce((s, g) => s + g.entries.length, 0),
+  }));
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
@@ -436,7 +452,27 @@ function UrlGroupTable({
             </tr>
           </thead>
           <tbody>
-            {groups.map((g) => {
+            {groupByHost(groups).map((hostGroup) => (
+              <Fragment key={`host:${hostGroup.host}`}>
+                <tr className="border-t border-slate-200 dark:border-slate-700/50 bg-slate-100/80 dark:bg-slate-800/70">
+                  <td
+                    colSpan={5 + analyses.length}
+                    className="py-2 px-4 text-xs font-semibold text-slate-700 dark:text-slate-300"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <span className="font-mono break-all" title={hostGroup.host}>
+                        {hostGroup.host}
+                      </span>
+                      <span className="text-slate-500 dark:text-slate-500 font-normal">
+                        · {hostGroup.urlGroups.length.toLocaleString()} URL
+                        {hostGroup.urlGroups.length === 1 ? "" : "s"} ·{" "}
+                        {hostGroup.totalHits.toLocaleString()} hit
+                        {hostGroup.totalHits === 1 ? "" : "s"}
+                      </span>
+                    </span>
+                  </td>
+                </tr>
+                {hostGroup.urlGroups.map((g) => {
               const isExpanded = expandedUrl === g.url;
               const avgSize =
                 g.entries.reduce((s, e) => s + e.contentSize, 0) /
@@ -566,7 +602,9 @@ function UrlGroupTable({
                   )}
                 </Fragment>
               );
-            })}
+                })}
+              </Fragment>
+            ))}
           </tbody>
         </table>
       </div>

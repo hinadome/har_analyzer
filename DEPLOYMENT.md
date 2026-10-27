@@ -29,6 +29,8 @@ Manual smoke after deploy (see [Post-deploy verification](#post-deploy-verificat
 11. Optional: enable worker parse and upload a ≥ 5 MB HAR (see [Build-time options](#build-time-options))
 12. Open `/content-search` — enter a string in **Body contains**; confirm the "Loading bodies…" indicator while bodies fetch, highlighted match snippets on expand, and the "N bodies searched / M without a captured body" summary. Enable **Decode base64** and confirm matches inside base64-encoded bodies appear (snippets show decoded text) and the summary reports "N base64-decoded". With redaction enabled on upload, confirm there is nothing to search (bodies omitted)
 13. **Security hardening** — with redaction enabled, re-upload or remove a file and confirm response bodies are not available on entry detail; `/kv-search` and `/content-search` regex mode show a timeout warning on pathological patterns; `/compare` does not link `javascript:` URLs
+14. Open `/details?type=url` (**All URLs**, via the Full metrics table "Unique URLs" row) — confirm URLs are grouped under **hostname section headers** (`host · N URLs · M hits`); expand/`/compare` links and per-file hit columns still work
+15. With ≥ 2 files, open `/performance/diff` — in **Only in Base** / **Only in Compare**, confirm URLs are grouped under **hostname headers** and each list has its own **Filter URLs…** box (case-insensitive; header shows `shown / total`; "No URLs match …" when nothing matches); column sort still applies within each host group
 
 ---
 
@@ -228,9 +230,11 @@ After Docker or VM deploy, confirm the **0.2.0** UI and assets load correctly:
 | MIME mismatch `/mime-mismatch` | Mismatch table (effective Content-Type); insight strip card when mismatches exist; **Show unverified extensions** off by default; Tools badge count |
 | Cache validator `/cache-validator` | Pathname groups with ETag or Last-Modified drift; weak (**W**, dashed) vs strong (**S**) ETag chips; expandable entry list; insight strip + Tools badge; **no-validator** paths toggle |
 | Anomalies `/anomalies` | Hub + four categories (status, size, encoding, cache-policy); unique-path Tools badge; correlation strip for multi-check paths; expandable entry lists; see [thresholds table](#anomaly-detection-thresholds-client-side) |
+| All URLs `/details?type=url` | URL groups rendered under **hostname section headers** (`host · N URLs · M hits`, hosts a–z); per-file hit columns, Avg Size/Time, expand-to-entries, and `/compare` links intact |
 | Content-Type resolution | Entry detail split when HAR MIME is junk (`x-unknown`) but header is real; **from header** / **≠ HAR** chips in list tables; Content Types counts use effective type |
 | Search content `/content-search` | Opened from Tools as **Search content**. **Body contains** needle (contains / exact / regex) + optional **URL contains** pre-filter + file scope; bodies load on demand (**Loading bodies…** indicator) and are cached by `bodyId`; expand rows for highlighted match snippets; summary reports bodies searched vs. without a captured body; **Decode base64** toggle searches the decoded UTF-8 of base64-encoded bodies (summary reports "N base64-decoded"); nothing to search when redaction omitted bodies on upload |
 | Security hardening | `?expand=` capped at 512 chars; kv-search and content-search regex timeout on pathological patterns; `/compare` external URL link only for `http:` / `https:` |
+| Pair diff `/performance/diff` | KPI Δs, timing-phase Δs, overlaid histogram, per-content-type Δs, movers, regressions/improvements. **Only in Base** / **Only in Compare** unique-URL lists grouped under **hostname headers**, each with its own **Filter URLs…** box (case-insensitive; `shown / total`; "No URLs match …" empty state); column sort applies within each host group |
 | Static assets | No 404s for `/_next/static/chunks/*` in browser devtools (if chunks 404, the standalone static copy step was skipped or the dest path was wrong — must be `.next/standalone/.next/static/`) |
 | Worker (optional) | With worker enabled, upload a large HAR — parse completes; if worker chunk 404s, app falls back to main-thread parse (check console) |
 
